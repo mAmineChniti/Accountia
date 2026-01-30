@@ -1,0 +1,13 @@
+/.idea
+/node_modules
+/frontend/.next
+/frontend/.turbo
+/target
+*.iml
+*.class
+*.log
+.env
+/docker/.env
+**/target/
+**/*.jar
+/.DS_Store
