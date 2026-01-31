@@ -10,8 +10,11 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
+    private String username;
     private String email;
     private String passwordHash;
     private String tenantId;
+
+    // comma separated roles, e.g. "PLATFORM_ADMIN,BUSINESS_OWNER"
+    private String roles;
 }

@@ -2,4 +2,4 @@
 set -euo pipefail
 
 echo "Bringing services up..."
-docker-compose up -d --remove-orphans
+docker compose up -d --remove-orphans

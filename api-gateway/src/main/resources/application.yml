@@ -6,16 +6,44 @@ spring:
     gateway:
       routes:
         - id: auth-route
-          uri: http://auth-ms:8080
+          uri: http://auth-ms:8081
           predicates:
             - Path=/api/auth/**
           filters:
             - StripPrefix=1
 
         - id: invoice-route
-          uri: http://invoice-ms:8080
+          uri: http://invoice-ms:8083
           predicates:
             - Path=/api/invoices/**
+          filters:
+            - StripPrefix=1
+
+        - id: business-route
+          uri: http://business-ms:8082
+          predicates:
+            - Path=/api/business/**
+          filters:
+            - StripPrefix=1
+
+        - id: expense-route
+          uri: http://expense-ms:8084
+          predicates:
+            - Path=/api/expenses/**
+          filters:
+            - StripPrefix=1
+
+        - id: client-route
+          uri: http://client-ms:8085
+          predicates:
+            - Path=/api/clients/**
+          filters:
+            - StripPrefix=1
+
+        - id: reporting-route
+          uri: http://reporting-ms:8086
+          predicates:
+            - Path=/api/reports/**
           filters:
             - StripPrefix=1
 
@@ -24,3 +52,14 @@ management:
     web:
       exposure:
         include: health,info
+
+redis:
+  host: ${REDIS_HOST:redis}
+  port: ${REDIS_PORT:6379}
+
+# Redis settings moved under the existing `spring` block above
+
+gateway:
+  rate-limiter:
+    replenish-rate: 10
+    burst-capacity: 20

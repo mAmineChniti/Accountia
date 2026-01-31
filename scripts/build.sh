@@ -2,4 +2,4 @@
 set -euo pipefail
 
 echo "Building docker images..."
-docker-compose build
+docker compose build
