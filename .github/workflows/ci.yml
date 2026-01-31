@@ -51,10 +51,52 @@ jobs:
             client-ms/target/*.jar
             expense-ms/target/*.jar
             invoice-ms/target/*.jar
-      - name: Build frontend (optional)
-        working-directory: ./frontend
+      - name: Start full stack with docker-compose (use GitHub Secrets)
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          # optional: expose DB host/port to compose (compose uses service names by default)
+          MYSQL_HOST: mysql
+          MYSQL_PORT: '3306'
         run: |
-          if [ -f package.json ]; then
-            npm ci
-            npm run build || true
-          fi
+          docker compose up -d --build
+
+      - name: Run service healthchecks
+        run: |
+          set -euo pipefail
+          services=(
+            "http://localhost:3001/actuator/health"      # api-gateway
+            "http://localhost:8101/api/auth/health"     # auth-ms
+            "http://localhost:8102/api/business/health" # business-ms
+            "http://localhost:8103/api/health"          # invoice-ms
+            "http://localhost:8104/api/expense/health"  # expense-ms
+            "http://localhost:8105/api/client/health"   # client-ms
+            "http://localhost:8200/"                    # reporting-ms
+          )
+          for url in "${services[@]}"; do
+            echo "Checking $url"
+            i=0
+            until [ $i -ge 30 ]; do
+              if curl -fsS "$url" >/dev/null 2>&1; then
+                echo "OK: $url"
+                break
+              fi
+              i=$((i+1))
+              sleep 5
+            done
+            if [ $i -ge 30 ]; then
+              echo "ERROR: $url did not become healthy" >&2
+              docker compose ps
+              docker compose logs --no-color --tail=200
+              exit 1
+            fi
+          done
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down --volumes
