@@ -2,64 +2,74 @@ server:
   port: 8080
 
 spring:
+  application:
+    name: api-gateway
+  redis:
+    host: ${REDIS_HOST:redis}
+    port: ${REDIS_PORT:6379}
+
+
+  gateway:
+    jwt:
+      secret: ${SECURITY_JWT_SECRET:changeitchangeitchangeitchangeit}
+
+spring:
   cloud:
     gateway:
-      routes:
-        - id: auth-route
-          uri: http://auth-ms:8081
-          predicates:
-            - Path=/api/auth/**
-          filters:
-            - StripPrefix=1
-
-        - id: invoice-route
-          uri: http://invoice-ms:8083
-          predicates:
-            - Path=/api/invoices/**
-          filters:
-            - StripPrefix=1
-
-        - id: business-route
-          uri: http://business-ms:8082
-          predicates:
-            - Path=/api/business/**
-          filters:
-            - StripPrefix=1
-
-        - id: expense-route
-          uri: http://expense-ms:8084
-          predicates:
-            - Path=/api/expenses/**
-          filters:
-            - StripPrefix=1
-
-        - id: client-route
-          uri: http://client-ms:8085
-          predicates:
-            - Path=/api/clients/**
-          filters:
-            - StripPrefix=1
-
-        - id: reporting-route
-          uri: http://reporting-ms:8086
-          predicates:
-            - Path=/api/reports/**
-          filters:
-            - StripPrefix=1
+      server:
+        webflux:
+          default-filters:
+            - RequestHeaderToRequestUri=X-Forwarded-Host, X-Forwarded-Proto
+          routes:
+            - id: auth-ms
+              uri: ${AUTH_MS_URL:http://auth-ms:8081}
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - StripPrefix=1
+            - id: business-ms
+              uri: ${BUSINESS_MS_URL:http://business-ms:8080}
+              predicates:
+                - Path=/api/business/**
+              filters:
+                - StripPrefix=1
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 20
+                    redis-rate-limiter.burstCapacity: 40
+            - id: invoice-ms
+              uri: ${INVOICE_MS_URL:http://invoice-ms:8080}
+              predicates:
+                - Path=/api/invoices/**
+                - Path=/api/health
+              filters:
+                - StripPrefix=1
+            - id: expense-ms
+              uri: ${EXPENSE_MS_URL:http://expense-ms:8080}
+              predicates:
+                - Path=/api/expense/**
+              filters:
+                - StripPrefix=1
+            - id: client-ms
+              uri: ${CLIENT_MS_URL:http://client-ms:8080}
+              predicates:
+                - Path=/api/client/**
+              filters:
+                - StripPrefix=1
+            - id: reporting-ms
+              uri: ${REPORTING_MS_URL:http://reporting-ms:8000}
+              predicates:
+                - Path=/api/reporting/**
+              filters:
+                - StripPrefix=2
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
 
-redis:
-  host: ${REDIS_HOST:redis}
-  port: ${REDIS_PORT:6379}
-
-# Redis settings moved under the existing `spring` block above
-
-gateway:
-  rate-limiter:
-    replenish-rate: 10
-    burst-capacity: 20
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: INFO
