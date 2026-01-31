@@ -7,13 +7,9 @@ spring:
   redis:
     host: ${REDIS_HOST:redis}
     port: ${REDIS_PORT:6379}
-
-
   gateway:
     jwt:
       secret: ${SECURITY_JWT_SECRET:changeitchangeitchangeitchangeit}
-
-spring:
   cloud:
     gateway:
       server:
