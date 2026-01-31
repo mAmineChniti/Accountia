@@ -20,10 +20,17 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Run Java service packaging verification
+      - name: Build Java services (package, skip tests)
         run: |
-          chmod +x ./scripts/verify_builds.sh
-          ./scripts/verify_builds.sh
+          set -euo pipefail
+          for d in api-gateway auth-ms business-ms client-ms expense-ms invoice-ms; do
+            if [ -f "$d/pom.xml" ]; then
+              echo "Building $d"
+              (cd "$d" && mvn -B -DskipTests package)
+            else
+              echo "Skipping $d (no pom.xml)"
+            fi
+          done
 
       - name: Build frontend (optional)
         working-directory: ./frontend
@@ -44,30 +51,10 @@ jobs:
             client-ms/target/*.jar
             expense-ms/target/*.jar
             invoice-ms/target/*.jar
-name: CI
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - name: Build Maven projects (skip tests)
+      - name: Build frontend (optional)
+        working-directory: ./frontend
         run: |
-          for d in auth-ms business-ms invoice-ms expense-ms client-ms; do
-            if [ -f "$d/pom.xml" ]; then
-              (cd $d && mvn -q -DskipTests package || true)
-            fi
-          done
-      - name: Lint Python requirements
-        run: echo "No-op"
+          if [ -f package.json ]; then
+            npm ci
+            npm run build || true
+          fi
