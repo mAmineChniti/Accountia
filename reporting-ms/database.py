@@ -1,9 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-import os
+from sqlalchemy.engine.url import URL
+from .settings import settings
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://accountia:accountia@postgres:5432/accountia_reporting')
+DATABASE_URL = settings.database_url
 
-engine = create_engine(DATABASE_URL)
+# enable pool_pre_ping to avoid errors with stopped connections in container environments
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
