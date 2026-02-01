@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           services=(
-            "http://localhost:3001/actuator/health"      # api-gateway
+            "http://localhost:3001/actuator/health"     # api-gateway
             "http://localhost:8101/api/auth/health"     # auth-ms
             "http://localhost:8102/api/business/health" # business-ms
             "http://localhost:8103/api/invoice/health"  # invoice-ms

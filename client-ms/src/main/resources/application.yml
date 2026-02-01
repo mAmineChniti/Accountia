@@ -3,22 +3,14 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/accountia}
     username: ${SPRING_DATASOURCE_USERNAME:accountia}
     password: ${SPRING_DATASOURCE_PASSWORD:accountia}
-  jpa:
-    hibernate:
-      ddl-auto: update
-
-server:
-  port: 8080
-spring:
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/accountia}
-    username: ${SPRING_DATASOURCE_USERNAME:accountia}
-    password: ${SPRING_DATASOURCE_PASSWORD:accountia}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+server:
+  port: 8080
 
 management:
   endpoints:
