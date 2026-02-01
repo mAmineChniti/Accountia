@@ -40,17 +40,6 @@ jobs:
             npm run build || true
           fi
 
-      - name: Archive build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: packaged-services
-          path: |
-            auth-ms/target/*.jar
-            api-gateway/target/*.jar
-            business-ms/target/*.jar
-            client-ms/target/*.jar
-            expense-ms/target/*.jar
-            invoice-ms/target/*.jar
       - name: Start full stack with docker-compose (use GitHub Secrets)
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
