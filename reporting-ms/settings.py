@@ -1,4 +1,6 @@
-from pydantic import BaseSettings, Field, PostgresDsn, validator
+from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_extra_types import PostgresDsn
 
 
 class Settings(BaseSettings):
