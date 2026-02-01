@@ -6,8 +6,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
 @EnableJpaRepositories(basePackages = "com.accountia.expense.repository")
-public class DemoApplication {
-	public static void main(String[] args) {
-		SpringApplication.run(DemoApplication.class, args);
-	}
+public class ExpenseApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(ExpenseApplication.class, args);
+    }
 }

@@ -11,8 +11,8 @@
 	<groupId>com.example</groupId>
 	<artifactId>auth-ms</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>demo</name>
-	<description>Demo project for Spring Boot</description>
+	<name>auth-ms</name>
+	<description>Authentication microservice for Accountia</description>
 	<url/>
 	<licenses>
 		<license/>

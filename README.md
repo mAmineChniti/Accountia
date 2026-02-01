@@ -1,12 +1,20 @@
 # Accountia
 
-Monorepo scaffold pour Accountia — SaaS multitenant de gestion financière.
+Accountia is a monorepo SaaS platform for multi-tenant financial management.
 
-Contient des projets démarrables pour:
-- Frontend: Next.js 14 + Bun + TailwindCSS + Shadcn/ui
-- Micro-services: Spring Boot (Java 17, Maven)
-- Reporting: FastAPI (Python 3.11, PostgreSQL)
-- API Gateway: NestJS (TypeScript)
-- Orchestration: Docker Compose
+## Project Structure
 
-Voir `docker-compose.yml` et `Makefile` pour démarrer en local.
+- **Frontend**: Next.js 14, Bun, TailwindCSS, Shadcn/ui ([frontend/](frontend/))
+- **API Gateway**: Spring Cloud Gateway (Java 21, Maven) ([api-gateway/](api-gateway/))
+- **Microservices**:
+	- **auth-ms**: Authentication (Spring Boot, Java 21) ([auth-ms/](auth-ms/))
+	- **business-ms**: Business logic (Spring Boot, Java 17) ([business-ms/](business-ms/))
+	- **client-ms**: Client management (Spring Boot, Java 17) ([client-ms/](client-ms/))
+	- **expense-ms**: Expense tracking (Spring Boot, Java 17) ([expense-ms/](expense-ms/))
+	- **invoice-ms**: Invoicing (Spring Boot, Java 17) ([invoice-ms/](invoice-ms/))
+- **Reporting**: FastAPI (Python 3.11, PostgreSQL) ([reporting-ms/](reporting-ms/))
+- **Orchestration**: Docker Compose, Makefile
+
+## Getting Started
+
+See `docker-compose.yml` and `Makefile` for local development and orchestration instructions.

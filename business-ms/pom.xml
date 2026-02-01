@@ -11,8 +11,8 @@
 	<groupId>com.example</groupId>
 	<artifactId>business-ms</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>demo</name>
-	<description>Demo project for Spring Boot</description>
+	<name>business-ms</name>
+	<description>Business microservice for Accountia</description>
 	<url/>
 	<licenses>
 		<license/>
