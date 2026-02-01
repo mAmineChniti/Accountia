@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from pydantic_extra_types import PostgresDsn
+from pydantic import PostgresDsn
 
 
 class Settings(BaseSettings):
@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = Field(..., env='POSTGRES_DB')
 
     class Config:
-        env_file = '.env'
-        env_file_encoding = 'utf-8'
+        env_file = None
+        env_file_encoding = None
 
     @property
     def database_url(self) -> str:
