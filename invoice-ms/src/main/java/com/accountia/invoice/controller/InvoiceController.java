@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/invoice")
 public class InvoiceController {
     private final InvoiceService invoiceService;
 
@@ -14,7 +14,8 @@ public class InvoiceController {
         this.invoiceService = invoiceService;
     }
 
-    @PostMapping("/invoices")
+
+    @PostMapping()
     public ResponseEntity<InvoiceDTO> createInvoice(@RequestBody InvoiceDTO invoiceDTO) {
         InvoiceDTO created = invoiceService.createInvoice(invoiceDTO);
         return ResponseEntity.ok(created);
