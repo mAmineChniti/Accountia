@@ -15,9 +15,11 @@ import org.springframework.security.oauth2.server.resource.authentication.Reacti
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -65,27 +67,54 @@ public class SecurityConfig {
     }
 
     /**
-     * Converter that extracts Keycloak realm roles from JWT claims.
+     * Converter that extracts Keycloak roles from JWT claims.
+     * Extracts both realm roles from realm_access.roles and client roles from resource_access.{client}.roles.
      */
     static class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
         
         @Override
         @SuppressWarnings("unchecked")
         public Collection<GrantedAuthority> convert(Jwt jwt) {
+            List<String> allRoles = new ArrayList<>();
+            
             // Extract realm roles from Keycloak token
             Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
-            if (realmAccess == null || realmAccess.isEmpty()) {
+            if (realmAccess != null && !realmAccess.isEmpty()) {
+                Object rolesObj = realmAccess.get("roles");
+                if (rolesObj instanceof Collection) {
+                    ((Collection<?>) rolesObj).forEach(role -> {
+                        if (role instanceof String) {
+                            allRoles.add((String) role);
+                        }
+                    });
+                }
+            }
+            
+            // Extract client roles from resource_access.{client}.roles
+            Map<String, Object> resourceAccess = jwt.getClaimAsMap("resource_access");
+            if (resourceAccess != null && !resourceAccess.isEmpty()) {
+                for (Object clientValue : resourceAccess.values()) {
+                    if (clientValue instanceof Map) {
+                        Map<String, Object> clientAccess = (Map<String, Object>) clientValue;
+                        Object clientRolesObj = clientAccess.get("roles");
+                        if (clientRolesObj instanceof Collection) {
+                            ((Collection<?>) clientRolesObj).forEach(role -> {
+                                if (role instanceof String) {
+                                    allRoles.add((String) role);
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            
+            if (allRoles.isEmpty()) {
                 return Collections.emptyList();
             }
             
-            Object rolesObj = realmAccess.get("roles");
-            if (!(rolesObj instanceof List)) {
-                return Collections.emptyList();
-            }
-            
-            List<String> roles = (List<String>) rolesObj;
-            return roles.stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+            return allRoles.stream()
+                    .distinct()
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase(Locale.ROOT)))
                     .collect(Collectors.toList());
         }
     }
