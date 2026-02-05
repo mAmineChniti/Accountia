@@ -1,16 +1,64 @@
+server:
+  port: ${SERVER_PORT:8081}
+
 spring:
+  application:
+    name: auth-ms
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/accountia}
-    username: ${SPRING_DATASOURCE_USERNAME:accountia}
-    password: ${SPRING_DATASOURCE_PASSWORD:accountia}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: ${JPA_SHOW_SQL:false}
+  
+  # OAuth2 Resource Server - Keycloak JWT
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
+  
+  # Redis Configuration (for token caching)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+  
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:/}
 
-server:
-  port: 8081
-
+# JWT Configuration
 security:
   jwt:
-    secret: ${SECURITY_JWT_SECRET:changeitchangeitchangeitchangeit}
+    secret: ${SECURITY_JWT_SECRET}
     expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:3600000}
+
+
+# Actuator
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    defaults:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.accountia: ${LOG_LEVEL_APP:DEBUG}

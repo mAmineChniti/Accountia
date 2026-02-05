@@ -1,20 +1,14 @@
-package com.accountia.auth.security;
+package com.accountia.expense.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.security.authentication.AbstractAuthenticationToken;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -25,14 +19,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Security configuration for Auth Service.
- * Uses OAuth2 Resource Server with Keycloak JWT validation.
- * Permits public access to auth endpoints for login/register.
+ * OAuth2 Resource Server security configuration for Expense Service.
+ * Validates JWT tokens issued by Keycloak and extracts roles.
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@Profile("!ci")
 public class SecurityConfig {
 
     @Bean
@@ -41,14 +33,14 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
-                .requestMatchers("/api/auth/**").permitAll()
                 // Only health endpoint public (for K8s probes)
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 // Other actuator endpoints require authentication
                 .requestMatchers("/actuator/**").authenticated()
+                // Permit Swagger/OpenAPI
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                // All other requests require authentication
+                // All API requests require authentication
+                .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -58,8 +50,7 @@ public class SecurityConfig {
     }
 
     /**
-     * Converts Keycloak JWT claims to Spring Security authorities.
-     * Extracts roles from realm_access.roles claim.
+     * Configures JWT authentication converter with Keycloak role extraction.
      */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
@@ -69,7 +60,7 @@ public class SecurityConfig {
     }
 
     /**
-     * Keycloak role converter that extracts realm_access.roles from JWT.
+     * Extracts roles from Keycloak's realm_access claim in JWT.
      */
     static class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
         @Override
@@ -87,15 +78,5 @@ public class SecurityConfig {
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
                 .collect(Collectors.toList());
         }
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
     }
 }

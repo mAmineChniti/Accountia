@@ -1,71 +1,90 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: api-gateway
-  redis:
-    host: ${REDIS_HOST:redis}
-    port: ${REDIS_PORT:6379}
-  gateway:
-    jwt:
-      secret: ${SECURITY_JWT_SECRET:changeitchangeitchangeitchangeit}
+  
+  # OAuth2 Resource Server - Keycloak JWT Validation
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
+  
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  
   cloud:
     gateway:
       server:
         webflux:
           default-filters:
-            - RequestHeaderToRequestUri=X-Forwarded-Host, X-Forwarded-Proto
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+                allowedMethods: "*"
+                allowedHeaders: "*"
+                allowCredentials: true
           routes:
             - id: auth-ms
               uri: ${AUTH_MS_URL:http://auth-ms:8081}
               predicates:
                 - Path=/api/auth/**
               filters:
-                - StripPrefix=1
+                - StripPrefix=0
             - id: business-ms
               uri: ${BUSINESS_MS_URL:http://business-ms:8080}
               predicates:
                 - Path=/api/business/**
               filters:
-                - StripPrefix=1
-                - name: RequestRateLimiter
-                  args:
-                    redis-rate-limiter.replenishRate: 20
-                    redis-rate-limiter.burstCapacity: 40
+                - StripPrefix=0
             - id: invoice-ms
               uri: ${INVOICE_MS_URL:http://invoice-ms:8080}
               predicates:
                 - Path=/api/invoices/**
-                - Path=/api/health
               filters:
-                - StripPrefix=1
+                - StripPrefix=0
             - id: expense-ms
               uri: ${EXPENSE_MS_URL:http://expense-ms:8080}
               predicates:
                 - Path=/api/expense/**
               filters:
-                - StripPrefix=1
+                - StripPrefix=0
             - id: client-ms
               uri: ${CLIENT_MS_URL:http://client-ms:8080}
               predicates:
                 - Path=/api/client/**
               filters:
-                - StripPrefix=1
+                - StripPrefix=0
             - id: reporting-ms
               uri: ${REPORTING_MS_URL:http://reporting-ms:8000}
               predicates:
                 - Path=/api/reporting/**
               filters:
-                - StripPrefix=2
+                - StripPrefix=1
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,gateway
+  endpoint:
+    health:
+      show-details: when_authorized
+    gateway:
+      access: unrestricted
+  health:
+    defaults:
+      enabled: true
 
 logging:
   level:
     root: INFO
-    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.gateway: ${LOG_LEVEL_GATEWAY:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:INFO}

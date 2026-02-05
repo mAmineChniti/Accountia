@@ -1,0 +1,40 @@
+# CI Profile - Disables external service connections
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.reactive.ReactiveOAuth2ResourceServerAutoConfiguration
+  main:
+    lazy-initialization: true
+    allow-bean-definition-overriding: true
+  cloud:
+    discovery:
+      enabled: false
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://dummy-issuer.local/realms/dummy
+          jwk-set-uri: https://dummy-issuer.local/realms/dummy/protocol/openid-connect/certs
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    redis:
+      enabled: false
+
+# Disable security for CI smoke tests
+logging:
+  level:
+    org.springframework.security: WARN
+    org.springframework.cloud.gateway: WARN
