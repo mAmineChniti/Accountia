@@ -1,6 +1,13 @@
+version: '3.8'
+
 services:
+  # =====================================================
+  # INFRASTRUCTURE SERVICES
+  # =====================================================
+  
   mysql:
     image: mysql:8.0
+    container_name: accountia-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-accountia}
@@ -10,9 +17,17 @@ services:
       - mysql-data:/var/lib/mysql
     ports:
       - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - accountia-network
 
   postgres:
     image: postgres:15
+    container_name: accountia-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-accountia_reporting}
       POSTGRES_USER: ${POSTGRES_USER:-accountia}
@@ -21,134 +36,324 @@ services:
       - postgres-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-accountia}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - accountia-network
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
+    container_name: accountia-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - accountia-network
 
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: accountia-rabbitmq
     environment:
-      - NODE_ENV=development
-    depends_on:
-      - api-gateway
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - accountia-network
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: accountia-keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-accountia_reporting}
+      KC_DB_USERNAME: ${POSTGRES_USER:-accountia}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-accountia}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
+      KC_HOSTNAME_PORT: ${KEYCLOAK_PORT:-8180}
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    command:
+      - start-dev
+      - --import-realm
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "8180:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - accountia-network
+
+  # =====================================================
+  # API GATEWAY
+  # =====================================================
+  
   api-gateway:
     build: ./api-gateway
+    container_name: accountia-api-gateway
+    environment:
+      - SERVER_PORT=8080
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
+      - AUTH_MS_URL=http://auth-ms:8081
+      - BUSINESS_MS_URL=http://business-ms:8080
+      - INVOICE_MS_URL=http://invoice-ms:8080
+      - EXPENSE_MS_URL=http://expense-ms:8080
+      - CLIENT_MS_URL=http://client-ms:8080
+      - REPORTING_MS_URL=http://reporting-ms:8000
     ports:
-      - "3001:8080"
+      - "8080:8080"
     depends_on:
-      - auth-ms
-      - invoice-ms
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - accountia-network
 
+  # =====================================================
+  # MICROSERVICES
+  # =====================================================
+  
   auth-ms:
     build: ./auth-ms
-    ports:
-      - "8101:8081"
+    container_name: accountia-auth
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
+      - SERVER_PORT=8081
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:mysql://${MYSQL_HOST:-mysql}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-accountia}}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - SECURITY_JWT_SECRET=${JWT_SECRET:-changeitchangeitchangeitchangeit}
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8081:8081"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/api/auth/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - accountia-network
 
   business-ms:
     build: ./business-ms
-    ports:
-      - "8102:8080"
-    depends_on:
-      - mysql
+    container_name: accountia-business
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
+      - SERVER_PORT=8080
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:mysql://${MYSQL_HOST:-mysql}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-accountia}}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+    ports:
+      - "8082:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/business/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - accountia-network
 
   invoice-ms:
     build: ./invoice-ms
-    ports:
-      - "8103:8080"
-    depends_on:
-      - mysql
+    container_name: accountia-invoice
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
+      - SERVER_PORT=8080
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:mysql://${MYSQL_HOST:-mysql}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-accountia}}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+    ports:
+      - "8083:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - accountia-network
 
   expense-ms:
     build: ./expense-ms
-    ports:
-      - "8104:8080"
-    depends_on:
-      - mysql
+    container_name: accountia-expense
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
+      - SERVER_PORT=8080
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:mysql://${MYSQL_HOST:-mysql}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-accountia}}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+    ports:
+      - "8084:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/expense/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - accountia-network
 
   client-ms:
     build: ./client-ms
-    ports:
-      - "8105:8080"
-    depends_on:
-      - mysql
+    container_name: accountia-client
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
+      - SERVER_PORT=8080
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
       - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL:-jdbc:mysql://${MYSQL_HOST:-mysql}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-accountia}}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+    ports:
+      - "8085:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/client/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - accountia-network
 
   reporting-ms:
     build: ./reporting-ms
-    ports:
-      - "8200:8000"
-    depends_on:
-      - postgres
+    container_name: accountia-reporting
     environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB:-accountia_reporting}
       - POSTGRES_USER=${POSTGRES_USER:-accountia}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-accountia}
+    ports:
+      - "8086:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - accountia-network
+
+  # =====================================================
+  # FRONTEND
+  # =====================================================
+  
+  frontend:
+    build: ./frontend
+    container_name: accountia-frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8180
+      - NEXT_PUBLIC_KEYCLOAK_REALM=accountia
+      - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=accountia-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - accountia-network
+
+networks:
+  accountia-network:
+    driver: bridge
 
 volumes:
   mysql-data:

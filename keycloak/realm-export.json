@@ -1,0 +1,330 @@
+{
+  "id": "accountia",
+  "realm": "accountia",
+  "displayName": "Accountia",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>Accountia</span></div>",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "roles": {
+    "realm": [
+      {
+        "id": "admin-role",
+        "name": "admin",
+        "description": "Administrator role with full access",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "id": "user-role",
+        "name": "user",
+        "description": "Standard user role",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "id": "accountant-role",
+        "name": "accountant",
+        "description": "Accountant role with financial access",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "id": "manager-role",
+        "name": "manager",
+        "description": "Manager role with team oversight",
+        "composite": false,
+        "clientRole": false
+      }
+    ],
+    "client": {
+      "accountia-frontend": [
+        {
+          "id": "frontend-admin",
+          "name": "admin",
+          "description": "Frontend admin access",
+          "composite": false,
+          "clientRole": true
+        },
+        {
+          "id": "frontend-user",
+          "name": "user",
+          "description": "Frontend user access",
+          "composite": false,
+          "clientRole": true
+        }
+      ],
+      "accountia-api": [
+        {
+          "id": "api-admin",
+          "name": "admin",
+          "description": "API admin access",
+          "composite": false,
+          "clientRole": true
+        },
+        {
+          "id": "api-user",
+          "name": "user",
+          "description": "API user access",
+          "composite": false,
+          "clientRole": true
+        }
+      ]
+    }
+  },
+  "groups": [
+    {
+      "id": "admins-group",
+      "name": "Administrators",
+      "path": "/Administrators",
+      "realmRoles": ["admin"]
+    },
+    {
+      "id": "users-group",
+      "name": "Users",
+      "path": "/Users",
+      "realmRoles": ["user"]
+    },
+    {
+      "id": "accountants-group",
+      "name": "Accountants",
+      "path": "/Accountants",
+      "realmRoles": ["accountant", "user"]
+    }
+  ],
+  "defaultRoles": ["user"],
+  "requiredCredentials": ["password"],
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyInitialCounter": 0,
+  "otpPolicyDigits": 6,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyPeriod": 30,
+  "otpSupportedApplications": ["FreeOTP", "Google Authenticator"],
+  "passwordPolicy": "length(8) and upperCase(1) and lowerCase(1) and digits(1)",
+  "clients": [
+    {
+      "id": "accountia-frontend",
+      "clientId": "accountia-frontend",
+      "name": "Accountia Frontend",
+      "description": "Frontend SPA application",
+      "rootUrl": "${FRONTEND_URL:http://localhost:3000}",
+      "adminUrl": "",
+      "baseUrl": "/",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://frontend:3000/*",
+        "${FRONTEND_URL:http://localhost:3000}/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://frontend:3000",
+        "${FRONTEND_URL:http://localhost:3000}"
+      ],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "publicClient": true,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*##${FRONTEND_URL:http://localhost:3000}/*"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    },
+    {
+      "id": "accountia-api",
+      "clientId": "accountia-api",
+      "name": "Accountia API Gateway",
+      "description": "API Gateway resource server",
+      "rootUrl": "${API_GATEWAY_URL:http://localhost:8080}",
+      "adminUrl": "",
+      "baseUrl": "/",
+      "surrogateAuthRequired": false,
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "REPLACE_WITH_SECURE_CLIENT_SECRET",
+      "_secret_note": "This secret MUST be regenerated via Keycloak Admin Console after deployment",
+      "redirectUris": [
+        "http://localhost:8080/*",
+        "http://api-gateway:8080/*",
+        "${API_GATEWAY_URL:http://localhost:8080}/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8080",
+        "http://api-gateway:8080",
+        "${API_GATEWAY_URL:http://localhost:8080}"
+      ],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "publicClient": false,
+      "frontchannelLogout": true,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "3600",
+        "client.session.idle.timeout": "1800",
+        "client.session.max.lifespan": "36000"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "protocolMappers": [
+        {
+          "id": "user-id-mapper",
+          "name": "user_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "user_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "user_id",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "id": "tenant-id-mapper",
+          "name": "tenant_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "tenant_id",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access"
+      ]
+    },
+    {
+      "id": "accountia-service",
+      "clientId": "accountia-service",
+      "name": "Accountia Service Account",
+      "description": "Service-to-service authentication",
+      "enabled": true,
+      "alwaysDisplayInConsole": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "REPLACE_WITH_SECURE_SERVICE_SECRET",
+      "_secret_note": "This secret MUST be regenerated via Keycloak Admin Console after deployment",
+      "redirectUris": [],
+      "webOrigins": [],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300"
+      },
+      "authenticationFlowBindingOverrides": {},
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": [
+        "web-origins",
+        "roles",
+        "profile",
+        "email"
+      ],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [],
+  "_comment_users": "Users must be created via Keycloak Admin Console or API after deployment. Do not store user credentials in version control.",
+  "scopeMappings": [],
+  "clientScopeMappings": {},
+  "smtpServer": {},
+  "eventsEnabled": true,
+  "eventsListeners": ["jboss-logging"],
+  "enabledEventTypes": [
+    "LOGIN",
+    "LOGIN_ERROR",
+    "LOGOUT",
+    "REGISTER",
+    "REGISTER_ERROR"
+  ],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "accessTokenLifespan": 3600,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "ssoSessionIdleTimeoutRememberMe": 0,
+  "ssoSessionMaxLifespanRememberMe": 0,
+  "offlineSessionIdleTimeout": 2592000,
+  "offlineSessionMaxLifespanEnabled": false,
+  "offlineSessionMaxLifespan": 5184000,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "actionTokenGeneratedByAdminLifespan": 43200,
+  "actionTokenGeneratedByUserLifespan": 300,
+  "internationalizationEnabled": false,
+  "supportedLocales": [],
+  "browserFlow": "browser",
+  "registrationFlow": "registration",
+  "directGrantFlow": "direct grant",
+  "resetCredentialsFlow": "reset credentials",
+  "clientAuthenticationFlow": "clients",
+  "dockerAuthenticationFlow": "docker auth"
+}

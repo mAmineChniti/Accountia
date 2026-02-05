@@ -1,0 +1,162 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  namespace: accountia
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: accountia-platform
+data:
+  realm-export.json: |
+    {
+      "realm": "accountia",
+      "enabled": true,
+      "sslRequired": "external",
+      "registrationAllowed": true,
+      "loginWithEmailAllowed": true,
+      "resetPasswordAllowed": true,
+      "roles": {
+        "realm": [
+          {"name": "admin", "description": "Administrator role"},
+          {"name": "user", "description": "Standard user role"},
+          {"name": "accountant", "description": "Accountant role"}
+        ]
+      },
+      "clients": [
+        {
+          "clientId": "accountia-frontend",
+          "enabled": true,
+          "publicClient": true,
+          "directAccessGrantsEnabled": true,
+          "redirectUris": [
+            "https://accountia.example.com/*",
+            "https://accountia.example.com/callback"
+          ],
+          "webOrigins": [
+            "https://accountia.example.com"
+          ]
+        },
+        {
+          "clientId": "accountia-api",
+          "enabled": true,
+          "publicClient": false,
+          "directAccessGrantsEnabled": true,
+          "serviceAccountsEnabled": true,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "${env.KEYCLOAK_API_CLIENT_SECRET}"
+        }
+      ],
+      "defaultRoles": ["user"]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: accountia
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: accountia-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:24.0
+          args:
+            - start
+            - --import-realm
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KC_DB
+              value: "postgres"
+            - name: KC_DB_URL
+              value: "jdbc:postgresql://postgres:5432/keycloak"
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: accountia-secrets
+                  key: POSTGRES_USER
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: accountia-secrets
+                  key: POSTGRES_PASSWORD
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: accountia-secrets
+                  key: KEYCLOAK_ADMIN
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: accountia-secrets
+                  key: KEYCLOAK_ADMIN_PASSWORD
+            # Production mode with proxy TLS termination (Ingress handles HTTPS)
+            - name: KC_PROXY
+              value: "edge"
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_METRICS_ENABLED
+              value: "true"
+            - name: KEYCLOAK_API_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: accountia-secrets
+                  key: KEYCLOAK_API_CLIENT_SECRET
+          volumeMounts:
+            - name: realm-config
+              mountPath: /opt/keycloak/data/import
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+      volumes:
+        - name: realm-config
+          configMap:
+            name: keycloak-realm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: accountia
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/part-of: accountia-platform
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: keycloak

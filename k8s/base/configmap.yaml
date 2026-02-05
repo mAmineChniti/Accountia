@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: accountia-config
+  namespace: accountia
+  labels:
+    app.kubernetes.io/name: accountia
+    app.kubernetes.io/part-of: accountia-platform
+data:
+  # RabbitMQ Configuration
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  
+  # Redis Configuration
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  
+  # MySQL Configuration
+  MYSQL_HOST: "mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_DATABASE: "accountia"
+  
+  # PostgreSQL Configuration
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "accountia_reporting"
+  
+  # Keycloak Configuration
+  KEYCLOAK_ISSUER_URI: "http://keycloak:8080/realms/accountia"
+  KEYCLOAK_JWK_SET_URI: "http://keycloak:8080/realms/accountia/protocol/openid-connect/certs"
+  
+  # Logging
+  LOG_LEVEL_APP: "INFO"
+  JPA_SHOW_SQL: "false"

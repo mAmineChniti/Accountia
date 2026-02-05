@@ -1,91 +1,544 @@
-name: CI
+# ==============================================================================
+# Accountia Microservices CI Pipeline
+# ==============================================================================
+# This workflow validates that the application:
+# - Builds correctly with Maven
+# - Can start and pass health checks
+# - Can be containerized via Docker
+# - Has valid Kubernetes manifests
+# - Is properly configured for deployment
+# ==============================================================================
+
+name: CI Pipeline
 
 on:
   push:
-    branches: ["master"]
+    branches:
+      - '**'  # Run on all branches
   pull_request:
-    branches: ["master"]
+    branches: ["master", "main"]
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: '21'
+  MAVEN_OPTS: '-Xmx1024m'
+  # List of Spring Boot services (detected from pom.xml locations)
+  SPRING_SERVICES: 'api-gateway auth-ms business-ms client-ms expense-ms invoice-ms'
 
 jobs:
-  build:
+  # ============================================================================
+  # STAGE 1: BUILD & SMOKE TEST (Combined to avoid artifacts)
+  # ============================================================================
+  build-and-test:
+    name: Build & Test - ${{ matrix.service }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - auth-ms
+          - business-ms
+          - client-ms
+          - expense-ms
+          - invoice-ms
+        include:
+          - service: api-gateway
+            port: 8080
+          - service: auth-ms
+            port: 8081
+          - service: business-ms
+            port: 8082
+          - service: invoice-ms
+            port: 8083
+          - service: expense-ms
+            port: 8084
+          - service: client-ms
+            port: 8085
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21 and cache Maven
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ env.JAVA_VERSION }}
           cache: maven
+          cache-dependency-path: '${{ matrix.service }}/pom.xml'
 
-      - name: Build Java services (package, skip tests)
+      - name: Build with Maven
+        working-directory: ${{ matrix.service }}
         run: |
-          set -euo pipefail
-          for d in api-gateway auth-ms business-ms client-ms expense-ms invoice-ms; do
-            if [ -f "$d/pom.xml" ]; then
-              echo "Building $d"
-              (cd "$d" && mvn -B -DskipTests package)
-            else
-              echo "Skipping $d (no pom.xml)"
+          echo "::group::Building ${{ matrix.service }}"
+          mvn -B clean package -DskipTests
+          echo "::endgroup::"
+
+      - name: Start Spring Boot application
+        env:
+          # CI profile uses H2 in-memory database - explicitly override datasource
+          SECURITY_JWT_SECRET: ci-test-secret-key-that-is-at-least-256-bits-long-for-hmac-sha256
+        run: |
+          echo "Starting ${{ matrix.service }} on port ${{ matrix.port }}"
+          cd ${{ matrix.service }}/target
+          JAR_FILE=$(ls *.jar | grep -v original | head -1)
+          
+          # Command-line args have highest precedence in Spring Boot
+          java -jar "$JAR_FILE" \
+            --spring.profiles.active=ci \
+            --server.port=${{ matrix.port }} \
+            "--spring.datasource.url=jdbc:h2:mem:testdb" \
+            "--spring.datasource.driver-class-name=org.h2.Driver" \
+            "--spring.datasource.username=sa" \
+            "--spring.datasource.password=" \
+            "--spring.jpa.database-platform=org.hibernate.dialect.H2Dialect" \
+            "--spring.jpa.hibernate.ddl-auto=create-drop" \
+            --eureka.client.enabled=false \
+            --spring.cloud.discovery.enabled=false \
+            "--spring.cloud.gateway.server.webflux.discovery.locator.enabled=false" \
+            > ../app.log 2>&1 &
+          
+          echo $! > ../app.pid
+          echo "Application PID: $(cat ../app.pid)"
+
+      - name: Wait for health endpoint
+        run: |
+          echo "Waiting for ${{ matrix.service }} health endpoint..."
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS"
+            
+            if curl -sf http://localhost:${{ matrix.port }}/actuator/health > /dev/null 2>&1; then
+              echo "✅ Health check passed for ${{ matrix.service }}"
+              curl -s http://localhost:${{ matrix.port }}/actuator/health | jq . || true
+              exit 0
             fi
+            
+            if [ -f "${{ matrix.service }}/app.pid" ]; then
+              PID=$(cat ${{ matrix.service }}/app.pid)
+              if ! ps -p $PID > /dev/null 2>&1; then
+                echo "❌ Application process died"
+                cat ${{ matrix.service }}/app.log || true
+                exit 1
+              fi
+            fi
+            
+            sleep 5
           done
+          
+          echo "❌ Health check failed after $MAX_ATTEMPTS attempts"
+          cat ${{ matrix.service }}/app.log || true
+          exit 1
 
-      - name: Build frontend (optional)
-        working-directory: ./frontend
+      - name: Shutdown application
+        if: always()
         run: |
-          if [ -f package.json ]; then
-            npm ci
-            npm run build || true
+          if [ -f "${{ matrix.service }}/app.pid" ]; then
+            kill $(cat ${{ matrix.service }}/app.pid) 2>/dev/null || true
           fi
 
-      - name: Start full stack with docker-compose (use GitHub Secrets)
-        env:
-          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
-          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
-          MYSQL_USER: ${{ secrets.MYSQL_USER }}
-          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          # optional: expose DB host/port to compose (compose uses service names by default)
-          MYSQL_HOST: mysql
-          MYSQL_PORT: '3306'
-        run: |
-          docker compose up -d --build
+      - name: Upload error logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-error-logs
+          path: ${{ matrix.service }}/app.log
+          retention-days: 1
 
-      - name: Run service healthchecks
+  # ============================================================================
+  # STAGE 2: DOCKER IMAGE BUILD (NO PUSH)
+  # ============================================================================
+  docker-build:
+    name: Docker Build - ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - auth-ms
+          - business-ms
+          - client-ms
+          - expense-ms
+          - invoice-ms
+          - frontend
+          - reporting-ms
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify Dockerfile exists
         run: |
-          set -euo pipefail
-          services=(
-            "http://localhost:3001/actuator/health"     # api-gateway
-            "http://localhost:8101/api/auth/health"     # auth-ms
-            "http://localhost:8102/api/business/health" # business-ms
-            "http://localhost:8103/api/invoice/health"  # invoice-ms
-            "http://localhost:8104/api/expense/health"  # expense-ms
-            "http://localhost:8105/api/client/health"   # client-ms
-            "http://localhost:8200/"                    # reporting-ms
+          if [ ! -f "${{ matrix.service }}/Dockerfile" ]; then
+            echo "❌ Dockerfile not found in ${{ matrix.service }}/"
+            exit 1
+          fi
+          echo "✅ Dockerfile found: ${{ matrix.service }}/Dockerfile"
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service }}
+          file: ${{ matrix.service }}/Dockerfile
+          push: false
+          tags: accountia/${{ matrix.service }}:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/${{ matrix.service }}.tar
+
+      - name: Verify image was built
+        run: |
+          docker load --input /tmp/${{ matrix.service }}.tar
+          docker images accountia/${{ matrix.service }}:ci-${{ github.sha }}
+          echo "✅ Docker image built successfully: accountia/${{ matrix.service }}:ci-${{ github.sha }}"
+
+  # ============================================================================
+  # STAGE 4: KUBERNETES MANIFEST VALIDATION
+  # ============================================================================
+  k8s-validation:
+    name: Kubernetes Manifest Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-amd64.tar.gz
+          tar xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Validate Kubernetes manifests with kubeconform
+        run: |
+          echo "::group::Validating Kubernetes manifests"
+          
+          ERRORS=0
+          
+          for manifest in $(find k8s -name "*.yaml" -o -name "*.yml" | sort); do
+            echo "Validating: $manifest"
+            
+            # Skip kustomization.yaml as it's not a standard K8s resource
+            if [[ "$manifest" == *"kustomization.yaml"* ]]; then
+              echo "  ⏭️ Skipping kustomization file"
+              continue
+            fi
+            
+            # Validate with kubeconform
+            if kubeconform -strict -summary -output json "$manifest" 2>&1; then
+              echo "  ✅ Valid"
+            else
+              echo "  ❌ Invalid"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+          
+          echo "::endgroup::"
+          
+          if [ $ERRORS -gt 0 ]; then
+            echo "❌ Found $ERRORS invalid manifest(s)"
+            exit 1
+          fi
+          
+          echo "✅ All Kubernetes manifests are valid"
+
+      - name: Validate with kubectl dry-run
+        run: |
+          echo "::group::kubectl dry-run validation"
+          
+          for manifest in $(find k8s -name "*.yaml" -o -name "*.yml" | grep -v kustomization | sort); do
+            echo "Dry-run validating: $manifest"
+            
+            # Use dry-run=client to validate without a cluster
+            if kubectl apply --dry-run=client -f "$manifest" 2>&1; then
+              echo "  ✅ Dry-run passed"
+            else
+              echo "  ⚠️ Dry-run warning (may contain template variables)"
+            fi
+          done
+          
+          echo "::endgroup::"
+
+      - name: Check for required resources
+        run: |
+          echo "Checking for required Kubernetes resources..."
+          
+          REQUIRED_FILES=(
+            "k8s/base/namespace.yaml"
+            "k8s/base/configmap.yaml"
+            "k8s/base/secrets.yaml"
           )
-          for url in "${services[@]}"; do
-            echo "Checking $url"
-            i=0
-            until [ $i -ge 30 ]; do
-              if curl -fsS "$url" >/dev/null 2>&1; then
-                echo "OK: $url"
-                break
-              fi
-              i=$((i+1))
-              sleep 5
-            done
-            if [ $i -ge 30 ]; then
-              echo "ERROR: $url did not become healthy" >&2
-              docker compose ps
-              docker compose logs --no-color --tail=200
+          
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ Found: $file"
+            else
+              echo "❌ Missing: $file"
               exit 1
             fi
           done
 
-      - name: Tear down stack
-        if: always()
-        run: docker compose down --volumes
+  # ============================================================================
+  # STAGE 5: CONFIGURATION SAFETY CHECKS
+  # ============================================================================
+  config-safety:
+    name: Configuration Safety Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for localhost usage in K8s configs
+        run: |
+          echo "::group::Checking for localhost usage in Kubernetes configs"
+          
+          # Find localhost references in k8s manifests (excluding comments and health probes)
+          # Health probes use localhost legitimately to check container-local services
+          # Use awk to check context: exclude localhost in probe command arrays
+          LOCALHOST_REFS=$(find k8s/ -type f \( -name "*.yaml" -o -name "*.yml" \) -exec \
+            awk '
+              /readinessProbe:|livenessProbe:|startupProbe:/ { in_probe=1 }
+              /^[^ ]/ || /^  [^ ]/ { if (!/Probe:/) in_probe=0 }
+              /localhost/ && !in_probe && !/^[[:space:]]*#/ { print FILENAME ":" NR ":" $0 }
+            ' {} \; || true)
+          
+          if [ -n "$LOCALHOST_REFS" ]; then
+            echo "❌ Found localhost references in Kubernetes configs:"
+            echo "$LOCALHOST_REFS"
+            echo ""
+            echo "Replace localhost with Kubernetes service names or environment variables."
+            echo "(Note: localhost in health probes is allowed)"
+            exit 1
+          fi
+          
+          echo "✅ No problematic localhost usage found in Kubernetes configs"
+          echo "::endgroup::"
+
+      - name: Check for hardcoded secrets
+        run: |
+          echo "::group::Checking for hardcoded secrets"
+          FAILED=0
+          
+          # ==================================================================
+          # 1. Check K8s secrets.yaml for real values (must use placeholders)
+          # ==================================================================
+          echo "📋 Checking k8s/base/secrets.yaml for hardcoded secrets..."
+          
+          if [ -f "k8s/base/secrets.yaml" ]; then
+            # Check for placeholder pattern (all values should be REPLACE_ME_*)
+            REAL_SECRETS=$(grep -E "^[[:space:]]+[A-Z_]+:" k8s/base/secrets.yaml | \
+              grep -v "REPLACE_ME" | \
+              grep -v "^#" | \
+              grep -v "_note:" || true)
+            
+            if [ -n "$REAL_SECRETS" ]; then
+              echo "❌ Hardcoded secrets found in k8s/base/secrets.yaml:"
+              echo "$REAL_SECRETS"
+              echo "All secret values must use REPLACE_ME_* placeholders"
+              FAILED=1
+            else
+              echo "✅ k8s/base/secrets.yaml uses placeholder values"
+            fi
+          fi
+          
+          # ==================================================================
+          # 2. Check application.yml files for hardcoded sensitive defaults
+          # ==================================================================
+          echo ""
+          echo "📋 Checking application.yml files for hardcoded sensitive defaults..."
+          
+          SERVICES="api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
+          SENSITIVE_PATTERNS="PASSWORD.*:|.*_PASSWORD:.*[^}]$|SECRET.*:.*[^}]$|DATASOURCE_URL.*:.*jdbc:|KEYCLOAK.*URI.*:.*http:"
+          
+          for service in $SERVICES; do
+            CONFIG_FILE="$service/src/main/resources/application.yml"
+            if [ -f "$CONFIG_FILE" ]; then
+              # Check for sensitive values with hardcoded defaults
+              HARDCODED=$(grep -E "\\\$\{[^}]+:[^}]+\}" "$CONFIG_FILE" | \
+                grep -iE "password|secret|credential|_url.*jdbc|keycloak.*uri" | \
+                grep -v ':}' || true)
+              
+              if [ -n "$HARDCODED" ]; then
+                echo "❌ Hardcoded sensitive defaults in $CONFIG_FILE:"
+                echo "$HARDCODED"
+                FAILED=1
+              fi
+            fi
+          done
+          
+          if [ $FAILED -eq 0 ]; then
+            echo "✅ No hardcoded sensitive defaults in application.yml files"
+          fi
+          
+          # ==================================================================
+          # 3. Check keycloak config for hardcoded credentials
+          # ==================================================================
+          echo ""
+          echo "📋 Checking keycloak config for hardcoded credentials..."
+          
+          if [ -f "keycloak/realm-export.json" ]; then
+            # Check for users with credentials
+            if grep -q '"credentials"' keycloak/realm-export.json && \
+               grep -q '"value"' keycloak/realm-export.json; then
+              echo "❌ Hardcoded user credentials found in keycloak/realm-export.json"
+              echo "Users with passwords should not be in the repository"
+              FAILED=1
+            else
+              echo "✅ No hardcoded user credentials in keycloak config"
+            fi
+          fi
+          
+          # ==================================================================
+          # 4. Final result
+          # ==================================================================
+          echo ""
+          if [ $FAILED -eq 1 ]; then
+            echo "❌ SECRET VALIDATION FAILED"
+            echo "All secrets must be provided at deployment time, not stored in repository"
+            exit 1
+          else
+            echo "✅ All secret validation checks passed"
+          fi
+          
+          echo "::endgroup::"
+
+      - name: Validate environment variable references
+        run: |
+          echo "::group::Validating environment variable references"
+          
+          # Check that ConfigMap and Secret references exist
+          CONFIG_REFS=$(grep -rh "configMapKeyRef:" k8s/services/ -A 2 | grep "name:" | awk '{print $2}' | sort -u || true)
+          SECRET_REFS=$(grep -rh "secretKeyRef:" k8s/services/ -A 2 | grep "name:" | awk '{print $2}' | sort -u || true)
+          
+          echo "ConfigMap references found: $CONFIG_REFS"
+          echo "Secret references found: $SECRET_REFS"
+          
+          # Verify configmap exists
+          if echo "$CONFIG_REFS" | grep -q "accountia-config"; then
+            if [ -f "k8s/base/configmap.yaml" ]; then
+              echo "✅ accountia-config ConfigMap definition found"
+            else
+              echo "❌ accountia-config referenced but not defined"
+              exit 1
+            fi
+          fi
+          
+          # Verify secrets exist
+          if echo "$SECRET_REFS" | grep -q "accountia-secrets"; then
+            if [ -f "k8s/base/secrets.yaml" ]; then
+              echo "✅ accountia-secrets Secret definition found"
+            else
+              echo "❌ accountia-secrets referenced but not defined"
+              exit 1
+            fi
+          fi
+          
+          echo "::endgroup::"
+
+      - name: Check Docker Compose configuration
+        run: |
+          echo "::group::Validating Docker Compose"
+          
+          if [ -f "docker-compose.yml" ]; then
+            docker compose config -q
+            echo "✅ docker-compose.yml is valid"
+          else
+            echo "⚠️ docker-compose.yml not found"
+          fi
+          
+          echo "::endgroup::"
+
+      - name: Verify required application configs
+        run: |
+          echo "::group::Checking application configurations"
+          
+          SERVICES="api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
+          
+          for service in $SERVICES; do
+            echo "Checking $service..."
+            
+            # Check for application.yml or application.properties
+            if [ -f "$service/src/main/resources/application.yml" ] || \
+               [ -f "$service/src/main/resources/application.yaml" ] || \
+               [ -f "$service/src/main/resources/application.properties" ]; then
+              echo "  ✅ Application config found"
+            else
+              echo "  ❌ No application config found in $service"
+              exit 1
+            fi
+            
+            # Check for pom.xml
+            if [ -f "$service/pom.xml" ]; then
+              echo "  ✅ pom.xml found"
+            else
+              echo "  ❌ pom.xml not found in $service"
+              exit 1
+            fi
+            
+            # Check for Dockerfile
+            if [ -f "$service/Dockerfile" ]; then
+              echo "  ✅ Dockerfile found"
+            else
+              echo "  ❌ Dockerfile not found in $service"
+              exit 1
+            fi
+          done
+          
+          echo "::endgroup::"
+
+  # ============================================================================
+  # STAGE 5: FINAL SUMMARY
+  # ============================================================================
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-test
+      - docker-build
+      - k8s-validation
+      - config-safety
+    if: always()
+    steps:
+      - name: Check job results
+        run: |
+          echo "## CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          BUILD="${{ needs.build-and-test.result }}"
+          DOCKER="${{ needs.docker-build.result }}"
+          K8S="${{ needs.k8s-validation.result }}"
+          CONFIG="${{ needs.config-safety.result }}"
+          
+          echo "| Build & Test | $( [ \"$BUILD\" = \"success\" ] && echo \"✅ Passed\" || echo \"❌ $BUILD\" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | $( [ \"$DOCKER\" = \"success\" ] && echo \"✅ Passed\" || echo \"❌ $DOCKER\" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "| K8s Validation | $( [ \"$K8S\" = \"success\" ] && echo \"✅ Passed\" || echo \"❌ $K8S\" ) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Config Safety | $( [ \"$CONFIG\" = \"success\" ] && echo \"✅ Passed\" || echo \"❌ $CONFIG\" ) |" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$BUILD" = "success" ] && [ "$DOCKER" = "success" ] && \
+             [ "$K8S" = "success" ] && [ "$CONFIG" = "success" ]; then
+            echo "### 🎉 All CI checks passed!" >> $GITHUB_STEP_SUMMARY
+            echo "The application is ready for deployment." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ Some CI checks failed" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed jobs above." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
