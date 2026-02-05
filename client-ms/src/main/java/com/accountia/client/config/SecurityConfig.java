@@ -70,12 +70,14 @@ public class SecurityConfig {
             if (realmAccess == null || realmAccess.isEmpty()) {
                 return List.of();
             }
-            List<String> roles = (List<String>) realmAccess.get("roles");
-            if (roles == null) {
+            Object rolesObj = realmAccess.get("roles");
+            if (!(rolesObj instanceof Collection)) {
                 return List.of();
             }
+            Collection<?> roles = (Collection<?>) rolesObj;
             return roles.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                .filter(role -> role instanceof String)
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + ((String) role).toUpperCase()))
                 .collect(Collectors.toList());
         }
     }

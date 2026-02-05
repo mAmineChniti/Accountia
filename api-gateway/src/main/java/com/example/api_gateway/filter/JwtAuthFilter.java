@@ -23,12 +23,19 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         return ReactiveSecurityContextHolder.getContext()
-            .map(securityContext -> securityContext.getAuthentication())
+            .flatMap(sc -> Mono.justOrEmpty(sc.getAuthentication()))
             .filter(auth -> auth instanceof JwtAuthenticationToken)
             .cast(JwtAuthenticationToken.class)
             .flatMap(jwtAuth -> {
                 var jwt = jwtAuth.getToken();
-                ServerHttpRequest.Builder mutated = exchange.getRequest().mutate();
+                ServerHttpRequest.Builder mutated = exchange.getRequest().mutate()
+                    .headers(headers -> {
+                        // Strip any client-supplied X-User-* headers to prevent spoofing
+                        headers.remove("X-User-Id");
+                        headers.remove("X-User-Email");
+                        headers.remove("X-User-Name");
+                        headers.remove("X-User-Roles");
+                    });
                 
                 // Propagate common claims as headers to downstream services
                 String subject = jwt.getSubject();
@@ -60,7 +67,18 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                 ServerWebExchange mutatedExchange = exchange.mutate().request(mutated.build()).build();
                 return chain.filter(mutatedExchange);
             })
-            .switchIfEmpty(chain.filter(exchange));
+            .switchIfEmpty(Mono.defer(() -> {
+                // Strip any client-supplied X-User-* headers for unauthenticated requests
+                ServerHttpRequest sanitized = exchange.getRequest().mutate()
+                    .headers(headers -> {
+                        headers.remove("X-User-Id");
+                        headers.remove("X-User-Email");
+                        headers.remove("X-User-Name");
+                        headers.remove("X-User-Roles");
+                    })
+                    .build();
+                return chain.filter(exchange.mutate().request(sanitized).build());
+            }));
     }
 
     @Override

@@ -68,16 +68,22 @@ public class SecurityConfig {
         @Override
         @SuppressWarnings("unchecked")
         public Collection<GrantedAuthority> convert(Jwt jwt) {
-            Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-            if (realmAccess == null || realmAccess.isEmpty()) {
+            Object realmAccessObj = jwt.getClaim("realm_access");
+            if (!(realmAccessObj instanceof Map)) {
                 return List.of();
             }
-            List<String> roles = (List<String>) realmAccess.get("roles");
-            if (roles == null) {
+            Map<String, Object> realmAccess = (Map<String, Object>) realmAccessObj;
+            if (realmAccess.isEmpty()) {
                 return List.of();
             }
+            Object rolesObj = realmAccess.get("roles");
+            if (!(rolesObj instanceof Collection)) {
+                return List.of();
+            }
+            Collection<?> roles = (Collection<?>) rolesObj;
             return roles.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                .filter(role -> role instanceof String)
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + ((String) role).toUpperCase()))
                 .collect(Collectors.toList());
         }
     }

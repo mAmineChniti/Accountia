@@ -25,11 +25,33 @@ public class InvoiceEventConsumer {
      */
     @RabbitListener(queues = RabbitMQConfig.BUSINESS_INVOICE_QUEUE)
     public void handleInvoiceEvent(Map<String, Object> message) {
-        log.info("Received invoice event: {}", message);
-        
         try {
-            String eventType = (String) message.get("eventType");
-            String invoiceId = (String) message.get("invoiceId");
+            // Validate message is not null
+            if (message == null) {
+                log.error("Received null message");
+                throw new IllegalArgumentException("Received null message");
+            }
+            
+            // Safely extract eventType with type checking
+            Object eventTypeObj = message.get("eventType");
+            if (eventTypeObj != null && !(eventTypeObj instanceof String)) {
+                log.error("Invalid eventType type in message: expected String, got {}. Raw message: {}", 
+                    eventTypeObj.getClass().getName(), message);
+                throw new IllegalArgumentException("eventType must be a String");
+            }
+            String eventType = (String) eventTypeObj;
+            
+            // Safely extract invoiceId with type checking
+            Object invoiceIdObj = message.get("invoiceId");
+            if (invoiceIdObj != null && !(invoiceIdObj instanceof String)) {
+                log.error("Invalid invoiceId type in message: expected String, got {}. Raw message: {}", 
+                    invoiceIdObj.getClass().getName(), message);
+                throw new IllegalArgumentException("invoiceId must be a String");
+            }
+            String invoiceId = (String) invoiceIdObj;
+            
+            log.info("Received invoice event: eventType={}, invoiceId={}", eventType, invoiceId);
+            log.debug("Full invoice event payload: {}", message);
             
             // Validate required fields - throw exception to trigger DLQ for invalid messages
             if (eventType == null || eventType.isBlank()) {
