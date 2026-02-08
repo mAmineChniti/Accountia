@@ -332,27 +332,6 @@ services:
     networks:
       - accountia-network
 
-  # =====================================================
-  # FRONTEND
-  # =====================================================
-  
-  frontend:
-    build: ./frontend
-    container_name: accountia-frontend
-    environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost:8080
-      - NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8180
-      - NEXT_PUBLIC_KEYCLOAK_REALM=accountia
-      - NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=accountia-frontend
-    ports:
-      - "3000:3000"
-    depends_on:
-      api-gateway:
-        condition: service_healthy
-    networks:
-      - accountia-network
-
 networks:
   accountia-network:
     driver: bridge
