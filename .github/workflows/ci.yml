@@ -165,7 +165,6 @@ jobs:
           - client-ms
           - expense-ms
           - invoice-ms
-          - frontend
           - reporting-ms
     steps:
       - name: Checkout repository

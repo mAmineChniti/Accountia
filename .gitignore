@@ -1,7 +1,5 @@
 /.idea
 /node_modules
-/frontend/.next
-/frontend/.turbo
 /target
 *.iml
 *.class
