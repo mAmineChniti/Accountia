@@ -1,10 +1,4 @@
-version: '3.8'
-
 services:
-  # =====================================================
-  # INFRASTRUCTURE SERVICES
-  # =====================================================
-  
   mysql:
     image: mysql:8.0
     container_name: accountia-mysql
@@ -47,6 +41,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: accountia-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -77,6 +74,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     container_name: accountia-keycloak
+    command: start --import-realm
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-accountia_reporting}
@@ -88,9 +86,6 @@ services:
       KC_HOSTNAME_PORT: ${KEYCLOAK_PORT:-8180}
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
-    command:
-      - start-dev
-      - --import-realm
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     ports:
@@ -168,6 +163,8 @@ services:
       - "8081:8081"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -339,3 +336,4 @@ networks:
 volumes:
   mysql-data:
   postgres-data:
+  redis-data:

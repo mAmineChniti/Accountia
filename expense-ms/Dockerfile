@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4
-FROM maven:3.9.4-eclipse-temurin-21 AS builder
+FROM maven:3.9.9-eclipse-temurin-21 AS builder
 WORKDIR /workspace
 COPY pom.xml ./
 COPY src ./src

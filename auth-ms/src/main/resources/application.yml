@@ -62,3 +62,11 @@ logging:
   level:
     root: INFO
     com.accountia: ${LOG_LEVEL_APP:DEBUG}
+
+# Admin seed configuration
+admin:
+  seed:
+    email: ${ADMIN_SEED_EMAIL:admin@accountia.test}
+    username: ${ADMIN_SEED_USERNAME:admin}
+    tenant-id: ${ADMIN_SEED_TENANT_ID:tenant_default}
+    password: ${ADMIN_SEED_PASSWORD:}

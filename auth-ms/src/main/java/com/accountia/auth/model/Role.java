@@ -4,5 +4,6 @@ public enum Role {
     PLATFORM_ADMIN,
     BUSINESS_OWNER,
     BUSINESS_MANAGER,
-    TEAM_MEMBER
+    TEAM_MEMBER,
+    CLIENT
 }

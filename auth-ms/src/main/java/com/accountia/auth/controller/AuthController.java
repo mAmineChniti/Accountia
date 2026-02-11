@@ -4,6 +4,7 @@ import com.accountia.auth.dto.UserDTO;
 import com.accountia.auth.dto.RegisterDTO;
 import com.accountia.auth.util.JwtUtil;
 import com.accountia.auth.service.AuthService;
+import com.accountia.auth.service.RateLimitingService;
 import com.accountia.auth.repository.UserRepository;
 import com.accountia.auth.service.RefreshTokenService;
 import com.accountia.auth.model.RefreshToken;
@@ -22,15 +23,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class AuthController {
     private final AuthService authService;
     private final JwtUtil jwtUtil;
-
+    private final RateLimitingService rateLimitingService;
     private final RefreshTokenService refreshTokenService;
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public AuthController(AuthService authService, JwtUtil jwtUtil, RefreshTokenService refreshTokenService, UserRepository userRepository, PasswordResetTokenRepository passwordResetTokenRepository, PasswordEncoder passwordEncoder) {
+    public AuthController(AuthService authService, JwtUtil jwtUtil, RateLimitingService rateLimitingService, RefreshTokenService refreshTokenService, UserRepository userRepository, PasswordResetTokenRepository passwordResetTokenRepository, PasswordEncoder passwordEncoder) {
         this.authService = authService;
         this.jwtUtil = jwtUtil;
+        this.rateLimitingService = rateLimitingService;
         this.refreshTokenService = refreshTokenService;
         this.userRepository = userRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -41,15 +43,26 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
         String email = body.get("email");
         String password = body.get("password");
+
+        if (email == null || password == null || email.trim().isBlank() || password.isBlank()) {
+            return ResponseEntity.status(400).body("Missing email or password");
+        }
+        email = email.trim();
+        
+        if (rateLimitingService.isRateLimited(email)) {
+            return ResponseEntity.status(429).body("Too many login attempts. Please try again in " + rateLimitingService.getRemainingLockTime(email) + " seconds.");
+        }
+        
         var opt = authService.login(email, password);
         if (opt.isPresent()) {
+            rateLimitingService.resetAttempts(email);
             com.accountia.auth.dto.UserDTO u = opt.get();
             com.accountia.auth.model.User fullUser = userRepository.findById(u.getId()).orElseThrow();
             java.util.Map<String, Object> claims = new java.util.HashMap<>();
             claims.put("userId", fullUser.getId());
             claims.put("tenantId", fullUser.getTenantId());
             claims.put("email", fullUser.getEmail());
-            claims.put("roles", fullUser.getRoles() == null ? "" : fullUser.getRoles());
+            claims.put("role", fullUser.getRole());
             String accessToken = jwtUtil.generateTokenWithClaims(fullUser.getEmail(), claims);
             RefreshToken rt = refreshTokenService.createRefreshToken(fullUser);
             java.util.Map<String, Object> resp = new java.util.HashMap<>();
@@ -58,6 +71,7 @@ public class AuthController {
             resp.put("user", u);
             return ResponseEntity.ok().body(resp);
         }
+        rateLimitingService.recordFailedAttempt(email);
         return ResponseEntity.status(401).body("Invalid credentials or user not found");
     }
 

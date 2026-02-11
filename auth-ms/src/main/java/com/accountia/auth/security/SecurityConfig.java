@@ -24,11 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Security configuration for Auth Service.
- * Uses OAuth2 Resource Server with Keycloak JWT validation.
- * Permits public access to auth endpoints for login/register.
- */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -41,14 +36,10 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
                 .requestMatchers("/api/auth/**").permitAll()
-                // Only health endpoint public (for K8s probes)
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                // Other actuator endpoints require authentication
                 .requestMatchers("/actuator/**").authenticated()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                // All other requests require authentication
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -57,10 +48,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /**
-     * Converts Keycloak JWT claims to Spring Security authorities.
-     * Extracts roles from realm_access.roles claim.
-     */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
@@ -68,9 +55,6 @@ public class SecurityConfig {
         return converter;
     }
 
-    /**
-     * Keycloak role converter that extracts realm_access.roles from JWT.
-     */
     static class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
         @Override
         @SuppressWarnings("unchecked")

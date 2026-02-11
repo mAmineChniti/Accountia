@@ -179,7 +179,6 @@
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "REPLACE_WITH_SECURE_CLIENT_SECRET",
-      "_secret_note": "This secret MUST be regenerated via Keycloak Admin Console after deployment",
       "redirectUris": [
         "http://localhost:8080/*",
         "http://api-gateway:8080/*",
@@ -260,7 +259,6 @@
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "REPLACE_WITH_SECURE_SERVICE_SECRET",
-      "_secret_note": "This secret MUST be regenerated via Keycloak Admin Console after deployment",
       "redirectUris": [],
       "webOrigins": [],
       "notBefore": 0,
@@ -290,7 +288,6 @@
     }
   ],
   "users": [],
-  "_comment_users": "Users must be created via Keycloak Admin Console or API after deployment. Do not store user credentials in version control.",
   "scopeMappings": [],
   "clientScopeMappings": {},
   "smtpServer": {},
