@@ -20,7 +20,6 @@ public class JwtUtil {
 
     public JwtUtil(@Value("${security.jwt.secret}") String secret,
                    @Value("${security.jwt.expiration-ms:3600000}") long expirationMs) {
-        // Fail fast if secret is too short - require at least 256 bits (32 bytes) for HS256
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
             throw new IllegalArgumentException(

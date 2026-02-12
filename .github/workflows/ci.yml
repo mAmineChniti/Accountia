@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 env:
-  JAVA_VERSION: '21'
+  JAVA_VERSION: '25'
   MAVEN_OPTS: '-Xmx1024m'
   # List of Spring Boot services (detected from pom.xml locations)
   SPRING_SERVICES: 'api-gateway auth-ms business-ms client-ms expense-ms invoice-ms'
