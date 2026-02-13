@@ -18,8 +18,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        if (user.getRole() == null) return List.of();
-        return List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
     @Override
@@ -45,6 +44,4 @@ public class CustomUserDetails implements UserDetails {
     public boolean isEnabled() { return true; }
 
     public Long getId() { return user.getId(); }
-
-    public String getTenantId() { return user.getTenantId(); }
 }
