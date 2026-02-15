@@ -3,16 +3,15 @@ services:
     image: mysql:8.0
     container_name: accountia-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-accountia}
-      MYSQL_USER: ${MYSQL_USER:-accountia}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-accountia}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
     volumes:
       - mysql-data:/var/lib/mysql
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${SPRING_DATASOURCE_USERNAME}", "-p${SPRING_DATASOURCE_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,8 +57,8 @@ services:
     image: rabbitmq:3.12-management-alpine
     container_name: accountia-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -103,6 +102,26 @@ services:
       - accountia-network
 
   # =====================================================
+  # EUREKA SERVICE DISCOVERY
+  # =====================================================
+  
+  eureka-server:
+    build: ./eureka-server
+    container_name: accountia-eureka
+    environment:
+      - SERVER_PORT=8761
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - accountia-network
+
+  # =====================================================
   # API GATEWAY
   # =====================================================
   
@@ -116,18 +135,15 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
-      - AUTH_MS_URL=http://auth-ms:8081
-      - BUSINESS_MS_URL=http://business-ms:8080
-      - INVOICE_MS_URL=http://invoice-ms:8080
-      - EXPENSE_MS_URL=http://expense-ms:8080
-      - CLIENT_MS_URL=http://client-ms:8080
-      - REPORTING_MS_URL=http://reporting-ms:8000
+      - EUREKA_SERVICE_URL=http://eureka-server:8761/eureka/
     ports:
       - "8080:8080"
     depends_on:
       redis:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      eureka-server:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -147,18 +163,19 @@ services:
     container_name: accountia-auth
     environment:
       - SERVER_PORT=8081
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
-      - SECURITY_JWT_SECRET=${JWT_SECRET:-changeitchangeitchangeitchangeit}
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
-      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
+      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI}
+      - KEYCLOAK_JWK_SET_URI=${KEYCLOAK_JWK_SET_URI}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - EUREKA_SERVICE_URL=${EUREKA_SERVICE_URL}
     ports:
       - "8081:8081"
     depends_on:
@@ -169,6 +186,8 @@ services:
       rabbitmq:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      eureka-server:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
@@ -184,23 +203,31 @@ services:
     container_name: accountia-business
     environment:
       - SERVER_PORT=8080
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
-      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
+      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI}
+      - KEYCLOAK_JWK_SET_URI=${KEYCLOAK_JWK_SET_URI}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - EUREKA_SERVICE_URL=${EUREKA_SERVICE_URL}
     ports:
       - "8082:8080"
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      eureka-server:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -215,27 +242,35 @@ services:
     build: ./invoice-ms
     container_name: accountia-invoice
     environment:
-      - SERVER_PORT=8080
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
-      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - SERVER_PORT=8083
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
+      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI}
+      - KEYCLOAK_JWK_SET_URI=${KEYCLOAK_JWK_SET_URI}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - EUREKA_SERVICE_URL=${EUREKA_SERVICE_URL}
     ports:
-      - "8083:8080"
+      - "8083:8083"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -247,27 +282,35 @@ services:
     build: ./expense-ms
     container_name: accountia-expense
     environment:
-      - SERVER_PORT=8080
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
-      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - SERVER_PORT=8084
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
+      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI}
+      - KEYCLOAK_JWK_SET_URI=${KEYCLOAK_JWK_SET_URI}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - EUREKA_SERVICE_URL=${EUREKA_SERVICE_URL}
     ports:
-      - "8084:8080"
+      - "8084:8084"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -279,27 +322,35 @@ services:
     build: ./client-ms
     container_name: accountia-client
     environment:
-      - SERVER_PORT=8080
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/accountia
-      - SPRING_DATASOURCE_USERNAME=${MYSQL_USER:-accountia}
-      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-accountia}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-guest}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
-      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - SERVER_PORT=8085
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
+      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI}
+      - KEYCLOAK_JWK_SET_URI=${KEYCLOAK_JWK_SET_URI}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - EUREKA_SERVICE_URL=${EUREKA_SERVICE_URL}
     ports:
-      - "8085:8080"
+      - "8085:8085"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      eureka-server:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5

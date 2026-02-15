@@ -10,6 +10,7 @@ data:
   # RabbitMQ Configuration
   RABBITMQ_HOST: "rabbitmq"
   RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "/"
   
   # Redis Configuration
   REDIS_HOST: "redis"
@@ -29,6 +30,18 @@ data:
   KEYCLOAK_ISSUER_URI: "http://keycloak:8080/realms/accountia"
   KEYCLOAK_JWK_SET_URI: "http://keycloak:8080/realms/accountia/protocol/openid-connect/certs"
   
+  # Eureka Configuration
+  EUREKA_SERVICE_URL: "http://eureka-server:8761/eureka/"
+  EUREKA_ENABLED: "true"
+  EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+  EUREKA_CLIENT_FETCH_REGISTRY: "true"
+  EUREKA_PREFER_IP: "true"
+  
+  # Reporting Service Configuration (Python FastAPI)
+  REPORTING_MS_URL: "http://reporting-ms:8000"
+  
   # Logging
   LOG_LEVEL_APP: "INFO"
+  LOG_LEVEL_EUREKA: "INFO"
+  LOG_LEVEL_DISCOVERY: "INFO"
   JPA_SHOW_SQL: "false"

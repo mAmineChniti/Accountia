@@ -10,7 +10,7 @@ spring:
     allow-bean-definition-overriding: true
   cloud:
     discovery:
-      enabled: false
+      enabled: true
   
   # H2 In-Memory Database for CI
   datasource:
