@@ -14,7 +14,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * CI-specific security configuration.
- * Permits all requests without OAuth2 JWT validation.
+ * Permits all requests without JWT validation for integration tests.
  */
 @Configuration
 @EnableWebSecurity

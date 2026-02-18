@@ -2,14 +2,21 @@ package com.accountia.auth_ms.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @Value("${server.error.include-message:never}")
+    private String includeMessage;
     
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
@@ -33,9 +40,13 @@ public class GlobalExceptionHandler {
     
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        log.error("Unexpected error", ex);
+        String message = "always".equals(includeMessage) || "on-param".equals(includeMessage)
+            ? (ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName())
+            : "An unexpected error occurred";
         ErrorResponse error = new ErrorResponse(
             "INTERNAL_ERROR",
-            "An unexpected error occurred",
+            message,
             Instant.now()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
