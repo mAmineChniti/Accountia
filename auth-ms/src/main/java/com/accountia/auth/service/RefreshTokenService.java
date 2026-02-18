@@ -1,5 +1,6 @@
 package com.accountia.auth.service;
 
+import com.accountia.auth.dto.TokenResponse;
 import com.accountia.auth.model.RefreshToken;
 import com.accountia.auth.model.User;
 import com.accountia.auth.repository.RefreshTokenRepository;
@@ -18,11 +19,14 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository repository;
     private final long refreshTokenDurationMs;
+    private final long accessTokenDurationMs;
 
     public RefreshTokenService(RefreshTokenRepository repository,
-                               @Value("${security.refresh.expiration-ms:2592000000}") long refreshTokenDurationMs) {
+                               @Value("${security.refresh.expiration-ms:2592000000}") long refreshTokenDurationMs,
+                               @Value("${security.access.expiration-ms:900000}") long accessTokenDurationMs) {
         this.repository = repository;
         this.refreshTokenDurationMs = refreshTokenDurationMs;
+        this.accessTokenDurationMs = accessTokenDurationMs;
     }
 
     public RefreshToken createRefreshToken(User user) {
@@ -31,6 +35,18 @@ public class RefreshTokenService {
         t.setToken(UUID.randomUUID().toString());
         t.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
         return repository.save(t);
+    }
+
+    public TokenResponse createSession(User user) {
+        RefreshToken refreshToken = createRefreshToken(user);
+        String accessToken = UUID.randomUUID().toString();
+        Instant now = Instant.now();
+        return new TokenResponse(
+            accessToken,
+            now.plusMillis(accessTokenDurationMs),
+            refreshToken.getToken(),
+            refreshToken.getExpiryDate()
+        );
     }
 
     @Cacheable(value = "refreshTokens", key = "#token")

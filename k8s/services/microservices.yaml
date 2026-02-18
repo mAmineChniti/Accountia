@@ -32,6 +32,29 @@ spec:
             readOnlyRootFilesystem: false
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
           env:
             - name: SERVER_PORT
               value: "8080"
@@ -77,25 +100,6 @@ spec:
                 configMapKeyRef:
                   name: accountia-config
                   key: KEYCLOAK_JWK_SET_URI
-          readinessProbe:
-            httpGet:
-              path: /actuator/health
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /actuator/health
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 30
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
-              memory: "1Gi"
-              cpu: "500m"
 ---
 apiVersion: v1
 kind: Service
@@ -112,6 +116,7 @@ spec:
       targetPort: 8080
   selector:
     app: business-ms
+
 ---
 # Invoice Microservice
 apiVersion: apps/v1
@@ -147,6 +152,29 @@ spec:
             readOnlyRootFilesystem: false
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
           env:
             - name: SERVER_PORT
               value: "8080"
@@ -192,25 +220,6 @@ spec:
                 configMapKeyRef:
                   name: accountia-config
                   key: KEYCLOAK_JWK_SET_URI
-          readinessProbe:
-            httpGet:
-              path: /actuator/health
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /actuator/health
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 30
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
-              memory: "1Gi"
-              cpu: "500m"
 ---
 apiVersion: v1
 kind: Service
@@ -227,7 +236,9 @@ spec:
       targetPort: 8080
   selector:
     app: invoice-ms
+
 ---
+
 # Expense Microservice
 apiVersion: apps/v1
 kind: Deployment
@@ -262,6 +273,29 @@ spec:
             readOnlyRootFilesystem: false
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
           env:
             - name: SERVER_PORT
               value: "8080"
@@ -307,25 +341,6 @@ spec:
                 configMapKeyRef:
                   name: accountia-config
                   key: KEYCLOAK_JWK_SET_URI
-          readinessProbe:
-            httpGet:
-              path: /actuator/health
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /actuator/health
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 30
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
-              memory: "1Gi"
-              cpu: "500m"
 ---
 apiVersion: v1
 kind: Service
@@ -342,7 +357,9 @@ spec:
       targetPort: 8080
   selector:
     app: expense-ms
+
 ---
+
 # Client Microservice
 apiVersion: apps/v1
 kind: Deployment
@@ -377,6 +394,29 @@ spec:
             readOnlyRootFilesystem: false
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
           env:
             - name: SERVER_PORT
               value: "8080"
@@ -422,25 +462,6 @@ spec:
                 configMapKeyRef:
                   name: accountia-config
                   key: KEYCLOAK_JWK_SET_URI
-          readinessProbe:
-            httpGet:
-              path: /actuator/health
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /actuator/health
-              port: 8080
-            initialDelaySeconds: 60
-            periodSeconds: 30
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
-              memory: "1Gi"
-              cpu: "500m"
 ---
 apiVersion: v1
 kind: Service

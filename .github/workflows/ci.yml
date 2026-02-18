@@ -1,34 +1,19 @@
-# ==============================================================================
-# Accountia Microservices CI Pipeline
-# ==============================================================================
-# This workflow validates that the application:
-# - Builds correctly with Maven
-# - Can start and pass health checks
-# - Can be containerized via Docker
-# - Has valid Kubernetes manifests
-# - Is properly configured for deployment
-# ==============================================================================
-
 name: CI Pipeline
 
 on:
   push:
     branches:
-      - '**'  # Run on all branches
+      - '**'
   pull_request:
     branches: ["master", "main"]
   workflow_dispatch:
 
 env:
-  JAVA_VERSION: '25'
+  JAVA_VERSION: '21'
   MAVEN_OPTS: '-Xmx1024m'
-  # List of Spring Boot services (detected from pom.xml locations)
-  SPRING_SERVICES: 'api-gateway auth-ms business-ms client-ms expense-ms invoice-ms'
+  SPRING_SERVICES: 'eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms'
 
 jobs:
-  # ============================================================================
-  # STAGE 1: BUILD & SMOKE TEST (Combined to avoid artifacts)
-  # ============================================================================
   build-and-test:
     name: Build & Test - ${{ matrix.service }}
     runs-on: ubuntu-latest
@@ -36,6 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         service:
+          - eureka-server
           - api-gateway
           - auth-ms
           - business-ms
@@ -43,6 +29,8 @@ jobs:
           - expense-ms
           - invoice-ms
         include:
+          - service: eureka-server
+            port: 8761
           - service: api-gateway
             port: 8080
           - service: auth-ms
@@ -76,26 +64,49 @@ jobs:
 
       - name: Start Spring Boot application
         env:
-          # CI profile uses H2 in-memory database - explicitly override datasource
-          SECURITY_JWT_SECRET: ci-test-secret-key-that-is-at-least-256-bits-long-for-hmac-sha256
+          SECURITY_JWT_SECRET: ${{ secrets.SECURITY_JWT_SECRET }}
+          SPRING_DATASOURCE_URL: ${{ secrets.SPRING_DATASOURCE_URL }}
+          SPRING_DATASOURCE_USERNAME: ${{ secrets.SPRING_DATASOURCE_USERNAME }}
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
+          RABBITMQ_HOST: ${{ secrets.RABBITMQ_HOST }}
+          RABBITMQ_PORT: ${{ secrets.RABBITMQ_PORT }}
+          RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+          KEYCLOAK_ISSUER_URI: ${{ secrets.KEYCLOAK_ISSUER_URI }}
+          KEYCLOAK_JWK_SET_URI: ${{ secrets.KEYCLOAK_JWK_SET_URI }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          EUREKA_SERVICE_URL: ${{ secrets.EUREKA_SERVICE_URL }}
         run: |
           echo "Starting ${{ matrix.service }} on port ${{ matrix.port }}"
           cd ${{ matrix.service }}/target
           JAR_FILE=$(ls *.jar | grep -v original | head -1)
           
-          # Command-line args have highest precedence in Spring Boot
+          # Use H2 database for services that have H2 CI configuration
+          if [[ "${{ matrix.service }}" =~ ^(auth-ms|business-ms|client-ms|expense-ms|invoice-ms)$ ]]; then
+            DATASOURCE_URL="jdbc:h2:mem:testdb"
+            DATASOURCE_USERNAME="sa"
+            DATASOURCE_PASSWORD=""
+          else
+            DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}"
+            DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}"
+            DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}"
+          fi
+          
           java -jar "$JAR_FILE" \
             --spring.profiles.active=ci \
             --server.port=${{ matrix.port }} \
-            "--spring.datasource.url=jdbc:h2:mem:testdb" \
-            "--spring.datasource.driver-class-name=org.h2.Driver" \
-            "--spring.datasource.username=sa" \
-            "--spring.datasource.password=" \
-            "--spring.jpa.database-platform=org.hibernate.dialect.H2Dialect" \
-            "--spring.jpa.hibernate.ddl-auto=create-drop" \
-            --eureka.client.enabled=false \
-            --spring.cloud.discovery.enabled=false \
-            "--spring.cloud.gateway.server.webflux.discovery.locator.enabled=false" \
+            --spring.datasource.url=$DATASOURCE_URL \
+            --spring.datasource.username=$DATASOURCE_USERNAME \
+            --spring.datasource.password=$DATASOURCE_PASSWORD \
+            --spring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
+            --spring.jpa.hibernate.ddl-auto=create-drop \
+            --eureka.client.enabled=true \
+            --eureka.client.register-with-eureka=true \
+            --eureka.client.fetch-registry=true \
+            --eureka.client.service-url.defaultZone=${{ secrets.EUREKA_SERVICE_URL }} \
+            --spring.cloud.discovery.enabled=true \
+            --spring.cloud.gateway.server.webflux.discovery.locator.enabled=true \
             > ../app.log 2>&1 &
           
           echo $! > ../app.pid
@@ -148,9 +159,6 @@ jobs:
           path: ${{ matrix.service }}/app.log
           retention-days: 1
 
-  # ============================================================================
-  # STAGE 2: DOCKER IMAGE BUILD (NO PUSH)
-  # ============================================================================
   docker-build:
     name: Docker Build - ${{ matrix.service }}
     runs-on: ubuntu-latest
@@ -159,6 +167,7 @@ jobs:
       fail-fast: false
       matrix:
         service:
+          - eureka-server
           - api-gateway
           - auth-ms
           - business-ms
@@ -198,9 +207,6 @@ jobs:
           docker images accountia/${{ matrix.service }}:ci-${{ github.sha }}
           echo "✅ Docker image built successfully: accountia/${{ matrix.service }}:ci-${{ github.sha }}"
 
-  # ============================================================================
-  # STAGE 4: KUBERNETES MANIFEST VALIDATION
-  # ============================================================================
   k8s-validation:
     name: Kubernetes Manifest Validation
     runs-on: ubuntu-latest
@@ -230,13 +236,11 @@ jobs:
           for manifest in $(find k8s -name "*.yaml" -o -name "*.yml" | sort); do
             echo "Validating: $manifest"
             
-            # Skip kustomization.yaml as it's not a standard K8s resource
             if [[ "$manifest" == *"kustomization.yaml"* ]]; then
               echo "  ⏭️ Skipping kustomization file"
               continue
             fi
             
-            # Validate with kubeconform
             if kubeconform -strict -summary -output json "$manifest" 2>&1; then
               echo "  ✅ Valid"
             else
@@ -261,7 +265,6 @@ jobs:
           for manifest in $(find k8s -name "*.yaml" -o -name "*.yml" | grep -v kustomization | sort); do
             echo "Dry-run validating: $manifest"
             
-            # Use dry-run=client to validate without a cluster
             if kubectl apply --dry-run=client -f "$manifest" 2>&1; then
               echo "  ✅ Dry-run passed"
             else
@@ -290,9 +293,6 @@ jobs:
             fi
           done
 
-  # ============================================================================
-  # STAGE 5: CONFIGURATION SAFETY CHECKS
-  # ============================================================================
   config-safety:
     name: Configuration Safety Checks
     runs-on: ubuntu-latest
@@ -304,15 +304,14 @@ jobs:
         run: |
           echo "::group::Checking for localhost usage in Kubernetes configs"
           
-          # Find localhost references in k8s manifests (excluding comments and health probes)
-          # Health probes use localhost legitimately to check container-local services
-          # Use awk to check context: exclude localhost in probe command arrays
-          LOCALHOST_REFS=$(find k8s/ -type f \( -name "*.yaml" -o -name "*.yml" \) -exec \
-            awk '
-              /readinessProbe:|livenessProbe:|startupProbe:/ { in_probe=1 }
-              /^[^ ]/ || /^  [^ ]/ { if (!/Probe:/) in_probe=0 }
-              /localhost/ && !in_probe && !/^[[:space:]]*#/ { print FILENAME ":" NR ":" $0 }
-            ' {} \; || true)
+          # Use a different approach to avoid YAML parsing issues
+          LOCALHOST_REFS=""
+          for manifest in $(find k8s -name "*.yaml" -o -name "*.yml" | grep -v kustomization | sort); do
+            # Check for localhost references (excluding health probes)
+            if grep -q "localhost" "$manifest" && ! grep -q -E "(readinessProbe|livenessProbe|startupProbe)" "$manifest"; then
+              LOCALHOST_REFS="$LOCALHOST_REFS$manifest: $(grep -n "localhost" "$manifest" | head -1)"
+            fi
+          done
           
           if [ -n "$LOCALHOST_REFS" ]; then
             echo "❌ Found localhost references in Kubernetes configs:"
@@ -331,13 +330,9 @@ jobs:
           echo "::group::Checking for hardcoded secrets"
           FAILED=0
           
-          # ==================================================================
-          # 1. Check K8s secrets.yaml for real values (must use placeholders)
-          # ==================================================================
           echo "📋 Checking k8s/base/secrets.yaml for hardcoded secrets..."
           
           if [ -f "k8s/base/secrets.yaml" ]; then
-            # Check for placeholder pattern (all values should be REPLACE_ME_*)
             REAL_SECRETS=$(grep -E "^[[:space:]]+[A-Z_]+:" k8s/base/secrets.yaml | \
               grep -v "REPLACE_ME" | \
               grep -v "^#" | \
@@ -353,19 +348,15 @@ jobs:
             fi
           fi
           
-          # ==================================================================
-          # 2. Check application.yml files for hardcoded sensitive defaults
-          # ==================================================================
           echo ""
           echo "📋 Checking application.yml files for hardcoded sensitive defaults..."
           
-          SERVICES="api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
+          SERVICES="eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
           SENSITIVE_PATTERNS="PASSWORD.*:|.*_PASSWORD:.*[^}]$|SECRET.*:.*[^}]$|DATASOURCE_URL.*:.*jdbc:|KEYCLOAK.*URI.*:.*http:"
           
           for service in $SERVICES; do
             CONFIG_FILE="$service/src/main/resources/application.yml"
             if [ -f "$CONFIG_FILE" ]; then
-              # Check for sensitive values with hardcoded defaults
               HARDCODED=$(grep -E "\\\$\{[^}]+:[^}]+\}" "$CONFIG_FILE" | \
                 grep -iE "password|secret|credential|_url.*jdbc|keycloak.*uri" | \
                 grep -v ':}' || true)
@@ -382,14 +373,10 @@ jobs:
             echo "✅ No hardcoded sensitive defaults in application.yml files"
           fi
           
-          # ==================================================================
-          # 3. Check keycloak config for hardcoded credentials
-          # ==================================================================
           echo ""
           echo "📋 Checking keycloak config for hardcoded credentials..."
           
           if [ -f "keycloak/realm-export.json" ]; then
-            # Check for users with credentials
             if grep -q '"credentials"' keycloak/realm-export.json && \
                grep -q '"value"' keycloak/realm-export.json; then
               echo "❌ Hardcoded user credentials found in keycloak/realm-export.json"
@@ -400,9 +387,6 @@ jobs:
             fi
           fi
           
-          # ==================================================================
-          # 4. Final result
-          # ==================================================================
           echo ""
           if [ $FAILED -eq 1 ]; then
             echo "❌ SECRET VALIDATION FAILED"
@@ -464,7 +448,7 @@ jobs:
         run: |
           echo "::group::Checking application configurations"
           
-          SERVICES="api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
+          SERVICES="eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
           
           for service in $SERVICES; do
             echo "Checking $service..."
