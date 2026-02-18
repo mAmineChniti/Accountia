@@ -1,5 +1,7 @@
 server:
   port: ${SERVER_PORT:8081}
+  error:
+    include-message: ${SERVER_ERROR_INCLUDE_MESSAGE:never}
 
 spring:
   application:
@@ -19,14 +21,6 @@ spring:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:false}
-  
-  # OAuth2 Resource Server - Keycloak JWT
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI}
-          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
   
   # Redis Configuration (for token caching)
   data:

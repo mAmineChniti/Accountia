@@ -4,10 +4,12 @@ import com.accountia.auth.dto.*;
 import com.accountia.auth.model.User;
 import com.accountia.auth.repository.UserRepository;
 import com.accountia.auth.repository.PasswordResetTokenRepository;
+import com.accountia.auth.repository.RefreshTokenRepository;
 import com.accountia.auth.model.PasswordResetToken;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -18,13 +20,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserCacheService userCacheService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AuthService(UserRepository userRepository, UserCacheService userCacheService, 
-                      PasswordResetTokenRepository passwordResetTokenRepository) {
+                      PasswordResetTokenRepository passwordResetTokenRepository,
+                      RefreshTokenRepository refreshTokenRepository) {
         this.userRepository = userRepository;
         this.userCacheService = userCacheService;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     public Optional<User> login(String identifier, String password) {
@@ -106,11 +111,13 @@ public class AuthService {
         return userRepository.save(user);
     }
 
+    @Transactional
     public void deleteUser(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new IllegalArgumentException("User not found");
-        }
-        userRepository.deleteById(userId);
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        refreshTokenRepository.deleteByUser(user);
+        passwordResetTokenRepository.deleteByUserId(userId);
+        userRepository.delete(user);
     }
 
     public void initiatePasswordReset(String email) {

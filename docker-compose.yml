@@ -3,6 +3,10 @@ services:
     image: mysql:8.0
     container_name: accountia-mysql
     environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-accountia}
+      MYSQL_USER: ${SPRING_DATASOURCE_USERNAME}
+      MYSQL_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
@@ -171,11 +175,12 @@ services:
       - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
-      - KEYCLOAK_ISSUER_URI=${KEYCLOAK_ISSUER_URI}
-      - KEYCLOAK_JWK_SET_URI=${KEYCLOAK_JWK_SET_URI}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - EUREKA_SERVICE_URL=${EUREKA_SERVICE_URL}
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=${EUREKA_SERVICE_URL}
+      - JPA_DDL_AUTO=${JPA_DDL_AUTO:-validate}
+      - SERVER_ERROR_INCLUDE_MESSAGE=${SERVER_ERROR_INCLUDE_MESSAGE:-always}
     ports:
       - "8081:8081"
     depends_on:
@@ -185,12 +190,10 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      keycloak:
-        condition: service_healthy
       eureka-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 5
