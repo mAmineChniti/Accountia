@@ -6,12 +6,14 @@ import com.accountia.invoice.dto.InvoiceEventEnvelope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 /**
  * Message producer for publishing invoice events to RabbitMQ.
  */
 @Service
+@Profile("!dev & !ci")
 public class InvoiceMessageProducer {
 
     private static final Logger log = LoggerFactory.getLogger(InvoiceMessageProducer.class);

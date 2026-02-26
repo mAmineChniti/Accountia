@@ -9,12 +9,14 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * RabbitMQ configuration for Invoice microservice.
  * Defines exchanges, queues, and bindings for async messaging.
  */
 @Configuration
+@Profile("!dev & !ci")
 public class RabbitMQConfig {
 
     // Exchange names

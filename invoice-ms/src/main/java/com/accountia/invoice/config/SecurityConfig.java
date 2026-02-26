@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@Profile("!ci")
+@Profile("!ci & !dev")
 public class SecurityConfig {
 
     @Bean

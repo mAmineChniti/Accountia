@@ -8,12 +8,14 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * RabbitMQ configuration for Business Service.
  * Defines exchanges, queues, and bindings for business-related events.
  */
 @Configuration
+@Profile("!dev")
 public class RabbitMQConfig {
 
     // Exchange names
