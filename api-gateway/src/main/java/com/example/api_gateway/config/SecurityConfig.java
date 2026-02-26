@@ -1,5 +1,6 @@
 package com.example.api_gateway.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -10,11 +11,16 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import reactor.core.publisher.Mono;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,6 +39,9 @@ import java.util.stream.Collectors;
 @EnableWebFluxSecurity
 @Profile("!ci")
 public class SecurityConfig {
+
+    @Value("${spring.security.oauth2.resourceserver.jwt.secret:changeitchangeitchangeitchangeit}")
+    private String jwtSecret;
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
@@ -54,6 +63,16 @@ public class SecurityConfig {
             );
         
         return http.build();
+    }
+
+    @Bean
+    public ReactiveJwtDecoder reactiveJwtDecoder() {
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            throw new IllegalArgumentException("JWT secret must be at least 32 bytes for HS256");
+        }
+        SecretKey key = new SecretKeySpec(keyBytes, "HmacSHA256");
+        return NimbusReactiveJwtDecoder.withSecretKey(key).build();
     }
 
     /**

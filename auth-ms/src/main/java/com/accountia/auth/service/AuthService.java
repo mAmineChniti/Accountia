@@ -33,7 +33,7 @@ public class AuthService {
     }
 
     public Optional<User> login(String identifier, String password) {
-        return userCacheService.findByEmailCached(identifier)
+        return userCacheService.findByIdentifierCached(identifier)
                 .filter(u -> passwordEncoder.matches(password, u.getPasswordHash()));
     }
 

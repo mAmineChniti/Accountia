@@ -17,9 +17,12 @@ public class UserCacheService {
         this.userRepository = userRepository;
     }
 
-    public Optional<User> findByEmailCached(String email) {
-        logger.debug("Looking up user by email: {}", email);
-        Optional<User> user = userRepository.findByEmail(email);
+    public Optional<User> findByIdentifierCached(String identifier) {
+        logger.debug("Looking up user by identifier: {}", identifier);
+        Optional<User> user = userRepository.findByEmail(identifier);
+        if (user.isEmpty()) {
+            user = userRepository.findByUsername(identifier);
+        }
         logger.debug("User found: {}", user.isPresent());
         return user;
     }

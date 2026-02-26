@@ -10,8 +10,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI}
-          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
+          secret: ${SECURITY_JWT_SECRET:changeitchangeitchangeitchangeit}
   
   data:
     redis:
@@ -25,6 +24,10 @@ spring:
           default-filters:
             - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
             - SecureHeaders=X-Content-Type-Options,X-Frame-Options,Strict-Transport-Security
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
           globalcors:
             cors-configurations:
               '[/**]':
@@ -55,7 +58,7 @@ spring:
             - id: expense-ms
               uri: lb://expense-ms
               predicates:
-                - Path=/api/expense/**
+                - Path=/api/expenses/**,/api/categories/**
               filters:
                 - StripPrefix=0
             - id: client-ms
@@ -70,10 +73,6 @@ spring:
                 - Path=/api/reporting/**
               filters:
                 - StripPrefix=1
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
       circuitbreaker:
         resilience4j:
           configs:
