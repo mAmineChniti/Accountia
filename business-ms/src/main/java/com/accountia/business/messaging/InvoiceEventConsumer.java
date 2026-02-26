@@ -4,6 +4,7 @@ import com.accountia.business.config.RabbitMQConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -13,6 +14,7 @@ import java.util.Map;
  * Listens to invoice events and updates business statistics.
  */
 @Component
+@Profile("!dev")
 public class InvoiceEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(InvoiceEventConsumer.class);
