@@ -13,6 +13,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+import org.springframework.context.annotation.Profile;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@Profile("!ci & !dev")
 public class SecurityConfig {
 
     @Bean

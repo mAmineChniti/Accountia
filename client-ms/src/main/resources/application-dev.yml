@@ -1,0 +1,48 @@
+# Dev Profile - Local MySQL database, disables external services (Keycloak, RabbitMQ)
+server:
+  port: 8083
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+  main:
+    allow-bean-definition-overriding: true
+  cloud:
+    discovery:
+      enabled: true
+
+  # MySQL locale
+  datasource:
+    url: jdbc:mysql://localhost:3306/accountia_client?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+eureka:
+  client:
+    enabled: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  health:
+    rabbit:
+      enabled: false
+
+logging:
+  level:
+    org.springframework.security: WARN
+    com.accountia: DEBUG
+
