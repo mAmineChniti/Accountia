@@ -1,4 +1,4 @@
-# Dev Profile - Local MySQL database, disables external services (Keycloak, RabbitMQ)
+# Dev Profile - Local MySQL database, disables external services
 server:
   port: 8083
 

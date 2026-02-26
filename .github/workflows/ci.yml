@@ -72,8 +72,6 @@ jobs:
           RABBITMQ_PORT: ${{ secrets.RABBITMQ_PORT }}
           RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
           RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
-          KEYCLOAK_ISSUER_URI: ${{ secrets.KEYCLOAK_ISSUER_URI }}
-          KEYCLOAK_JWK_SET_URI: ${{ secrets.KEYCLOAK_JWK_SET_URI }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
           EUREKA_SERVICE_URL: ${{ secrets.EUREKA_SERVICE_URL }}
@@ -352,13 +350,13 @@ jobs:
           echo "📋 Checking application.yml files for hardcoded sensitive defaults..."
           
           SERVICES="eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
-          SENSITIVE_PATTERNS="PASSWORD.*:|.*_PASSWORD:.*[^}]$|SECRET.*:.*[^}]$|DATASOURCE_URL.*:.*jdbc:|KEYCLOAK.*URI.*:.*http:"
+          SENSITIVE_PATTERNS="PASSWORD.*:|.*_PASSWORD:.*[^}]$|SECRET.*:.*[^}]$|DATASOURCE_URL.*:.*jdbc:"
           
           for service in $SERVICES; do
             CONFIG_FILE="$service/src/main/resources/application.yml"
             if [ -f "$CONFIG_FILE" ]; then
               HARDCODED=$(grep -E "\\\$\{[^}]+:[^}]+\}" "$CONFIG_FILE" | \
-                grep -iE "password|secret|credential|_url.*jdbc|keycloak.*uri" | \
+                grep -iE "password|secret|credential|_url.*jdbc" | \
                 grep -v ':}' || true)
               
               if [ -n "$HARDCODED" ]; then
@@ -374,20 +372,8 @@ jobs:
           fi
           
           echo ""
-          echo "📋 Checking keycloak config for hardcoded credentials..."
+          echo "📋 All security checks completed"
           
-          if [ -f "keycloak/realm-export.json" ]; then
-            if grep -q '"credentials"' keycloak/realm-export.json && \
-               grep -q '"value"' keycloak/realm-export.json; then
-              echo "❌ Hardcoded user credentials found in keycloak/realm-export.json"
-              echo "Users with passwords should not be in the repository"
-              FAILED=1
-            else
-              echo "✅ No hardcoded user credentials in keycloak config"
-            fi
-          fi
-          
-          echo ""
           if [ $FAILED -eq 1 ]; then
             echo "❌ SECRET VALIDATION FAILED"
             echo "All secrets must be provided at deployment time, not stored in repository"

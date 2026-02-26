@@ -90,16 +90,6 @@ spec:
                 secretKeyRef:
                   name: accountia-secrets
                   key: RABBITMQ_PASSWORD
-            - name: KEYCLOAK_ISSUER_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_ISSUER_URI
-            - name: KEYCLOAK_JWK_SET_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_JWK_SET_URI
 ---
 apiVersion: v1
 kind: Service
@@ -210,16 +200,6 @@ spec:
                 secretKeyRef:
                   name: accountia-secrets
                   key: RABBITMQ_PASSWORD
-            - name: KEYCLOAK_ISSUER_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_ISSUER_URI
-            - name: KEYCLOAK_JWK_SET_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_JWK_SET_URI
 ---
 apiVersion: v1
 kind: Service
@@ -331,16 +311,6 @@ spec:
                 secretKeyRef:
                   name: accountia-secrets
                   key: RABBITMQ_PASSWORD
-            - name: KEYCLOAK_ISSUER_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_ISSUER_URI
-            - name: KEYCLOAK_JWK_SET_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_JWK_SET_URI
 ---
 apiVersion: v1
 kind: Service
@@ -452,16 +422,6 @@ spec:
                 secretKeyRef:
                   name: accountia-secrets
                   key: RABBITMQ_PASSWORD
-            - name: KEYCLOAK_ISSUER_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_ISSUER_URI
-            - name: KEYCLOAK_JWK_SET_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_JWK_SET_URI
 ---
 apiVersion: v1
 kind: Service

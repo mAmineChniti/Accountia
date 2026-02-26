@@ -48,16 +48,6 @@ spec:
           env:
             - name: SERVER_PORT
               value: "8080"
-            - name: KEYCLOAK_ISSUER_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_ISSUER_URI
-            - name: KEYCLOAK_JWK_SET_URI
-              valueFrom:
-                configMapKeyRef:
-                  name: accountia-config
-                  key: KEYCLOAK_JWK_SET_URI
             - name: REDIS_HOST
               valueFrom:
                 configMapKeyRef:

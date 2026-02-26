@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: accountia
 
 resources:
-  # Base resources
+  # Base
   - base/namespace.yaml
   - base/configmap.yaml
   - base/secrets.yaml
@@ -14,7 +14,6 @@ resources:
   - infrastructure/postgres.yaml
   - infrastructure/redis.yaml
   - infrastructure/rabbitmq.yaml
-  - infrastructure/keycloak.yaml
   - infrastructure/eureka-server.yaml
   
   # Services
