@@ -15,7 +15,7 @@ A multi-tenant SaaS platform for financial management built with microservices a
 | **API Gateway** | Spring Cloud Gateway (Java 21) |
 | **Microservices** | Spring Boot 3.x (Java 21) |
 | **Reporting Service** | FastAPI (Python 3.11) |
-| **Authentication** | Keycloak 24.0 (OAuth2/OIDC) |
+| **Authentication** | JWT-based Authentication |
 | **Databases** | MySQL 8.0, PostgreSQL 15 |
 | **Message Broker** | RabbitMQ 3.12 |
 | **Caching** | Redis 7 |
@@ -32,7 +32,6 @@ accountia/
 ├── expense-ms/           # Expense tracking microservice
 ├── invoice-ms/           # Invoice management microservice
 ├── reporting-ms/         # Reporting service (FastAPI/Python)
-├── keycloak/             # Keycloak realm configuration
 ├── k8s/                  # Kubernetes manifests (Kustomize)
 ├── docker-compose.yml    # Local development orchestration
 └── Makefile              # Build and run shortcuts
@@ -81,7 +80,6 @@ make down
 | Service | URL |
 |---------|-----|
 | API Gateway | http://localhost:8080 |
-| Keycloak Admin | http://localhost:8180 |
 | RabbitMQ Management | http://localhost:15672 |
 
 ### Environment Variables
@@ -95,7 +93,7 @@ MYSQL_DATABASE=accountia
 MYSQL_USER=accountia
 MYSQL_PASSWORD=accountia
 
-# PostgreSQL (Reporting & Keycloak)
+# PostgreSQL (Reporting)
 POSTGRES_DB=accountia_reporting
 POSTGRES_USER=accountia
 POSTGRES_PASSWORD=accountia
@@ -103,10 +101,6 @@ POSTGRES_PASSWORD=accountia
 # RabbitMQ
 RABBITMQ_USERNAME=guest
 RABBITMQ_PASSWORD=guest
-
-# Keycloak
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=admin
 
 # JWT
 JWT_SECRET=changeitchangeitchangeitchangeit
@@ -130,7 +124,7 @@ kubectl apply -k k8s/
 k8s/
 ├── kustomization.yaml    # Main Kustomize configuration
 ├── base/                 # Namespace, ConfigMaps, Secrets
-├── infrastructure/       # MySQL, PostgreSQL, Redis, RabbitMQ, Keycloak
+├── infrastructure/       # MySQL, PostgreSQL, Redis, RabbitMQ
 └── services/             # API Gateway and microservices
 ```
 

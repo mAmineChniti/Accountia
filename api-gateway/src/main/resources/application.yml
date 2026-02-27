@@ -5,14 +5,7 @@ spring:
   application:
     name: api-gateway
   
-  # OAuth2 Resource Server - Keycloak JWT Validation
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI}
-          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
-  
+  # Data Redis for session management
   data:
     redis:
       host: ${REDIS_HOST:localhost}

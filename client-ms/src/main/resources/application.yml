@@ -20,16 +20,9 @@ spring:
       ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:false}
   
-  # OAuth2 Resource Server - Keycloak JWT
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI}
-          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
-  
   # RabbitMQ Configuration
   rabbitmq:
+    enabled: true
     host: ${RABBITMQ_HOST:rabbitmq}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME}
@@ -55,6 +48,11 @@ spring:
         initial-interval: 1000
         max-attempts: 3
 
+security:
+  jwt:
+    secret: ${SECURITY_JWT_SECRET}
+    expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:3600000}
+
 eureka:
   client:
     enabled: ${EUREKA_ENABLED:true}
@@ -64,10 +62,14 @@ eureka:
     fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
     healthcheck:
       enabled: true
+    registry-fetch-interval-seconds: 30
   instance:
     prefer-ip-address: ${EUREKA_PREFER_IP:true}
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+    non-secure-port: ${SERVER_PORT:8080}
+    secure-port-enabled: false
 
 # Actuator
 management:
