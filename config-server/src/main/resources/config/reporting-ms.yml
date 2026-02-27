@@ -1,0 +1,23 @@
+# Reporting Microservice Configuration (FastAPI/Python)
+# This configuration is for reference - the Python service will read from environment variables
+
+# Database configuration for PostgreSQL
+postgres:
+  host: ${POSTGRES_HOST:postgres}
+  port: ${POSTGRES_PORT:5432}
+  database: ${POSTGRES_DB:accountia_reporting}
+  user: ${POSTGRES_USER:accountia}
+  password: ${POSTGRES_PASSWORD:accountia}
+
+# FastAPI specific settings
+fastapi:
+  host: 0.0.0.0
+  port: 8000
+  debug: ${DEBUG:false}
+  title: Accountia Reporting Service
+  version: 1.0.0
+
+# Logging configuration
+logging:
+  level: ${LOG_LEVEL:INFO}
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

@@ -15,6 +15,8 @@ resources:
   - infrastructure/redis.yaml
   - infrastructure/rabbitmq.yaml
   - infrastructure/eureka-server.yaml
+  - infrastructure/config-server.yaml
+  - infrastructure/config-server-configmap.yaml
   
   # Services
   - services/api-gateway.yaml
@@ -28,6 +30,8 @@ commonLabels:
 # Image transformer - override with: kustomize edit set image accountia/api-gateway=myregistry.io/accountia/api-gateway:v1.0.0
 # Or create overlay kustomization.yaml files for different environments
 images:
+  - name: accountia/config-server
+    newTag: latest
   - name: accountia/eureka-server
     newTag: latest
   - name: accountia/api-gateway

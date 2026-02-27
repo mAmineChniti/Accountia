@@ -1,0 +1,25 @@
+# Client Microservice Configuration
+server:
+  port: 8085
+
+spring:
+  application:
+    name: client-ms
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVICE_URL}
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    healthcheck:
+      enabled: true
+    registry-fetch-interval-seconds: 30
+  instance:
+    prefer-ip-address: false
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+    hostname: client-ms
+    non-secure-port: 8085
+    secure-port-enabled: false

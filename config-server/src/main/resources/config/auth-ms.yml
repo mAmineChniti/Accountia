@@ -1,0 +1,30 @@
+# Authentication Microservice Configuration
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-ms
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVICE_URL}
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    healthcheck:
+      enabled: true
+    registry-fetch-interval-seconds: 30
+  instance:
+    prefer-ip-address: false
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+# Admin user seeding
+admin:
+  seed:
+    email: ${ADMIN_SEED_EMAIL}
+    username: ${ADMIN_SEED_USERNAME}
+    tenant-id: ${ADMIN_SEED_TENANT_ID}
+    password: ${ADMIN_SEED_PASSWORD}
