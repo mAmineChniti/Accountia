@@ -1,0 +1,303 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: accountia-config-server-files
+  namespace: accountia
+  labels:
+    app: config-server
+    component: infrastructure
+data:
+  # Common configuration for all services
+  accountia.yml: |
+    spring:
+      datasource:
+        url: ${SPRING_DATASOURCE_URL}
+        username: ${SPRING_DATASOURCE_USERNAME}
+        password: ${SPRING_DATASOURCE_PASSWORD}
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+          maximum-pool-size: ${HIKARI_MAXIMUM_POOL_SIZE:20}
+          minimum-idle: ${HIKARI_MINIMUM_IDLE:5}
+          connection-timeout: ${HIKARI_CONNECTION_TIMEOUT:30000}
+          idle-timeout: ${HIKARI_IDLE_TIMEOUT:600000}
+          max-lifetime: ${HIKARI_MAX_LIFETIME:1800000}
+      jpa:
+        hibernate:
+          ddl-auto: ${JPA_DDL_AUTO:validate}
+        show-sql: ${JPA_SHOW_SQL:false}
+      
+      # RabbitMQ Configuration
+      rabbitmq:
+        enabled: true
+        host: ${RABBITMQ_HOST}
+        port: ${RABBITMQ_PORT}
+        username: ${RABBITMQ_USERNAME}
+        password: ${RABBITMQ_PASSWORD}
+        virtual-host: ${RABBITMQ_VHOST:/}
+        connection-timeout: 15000
+        publisher-confirm-type: correlated
+        publisher-returns: true
+        listener:
+          simple:
+            acknowledge-mode: manual
+            default-requeue-rejected: false
+            retry:
+              enabled: true
+              initial-interval: 1000
+              max-attempts: 3
+              max-interval: 10000
+              multiplier: 2
+        template:
+          retry:
+            enabled: true
+            initial-interval: 1000
+              max-attempts: 3
+
+    # JWT Configuration
+    security:
+      jwt:
+        secret: ${SECURITY_JWT_SECRET}
+        expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:3600000}
+
+    # Actuator
+    management:
+      endpoints:
+        web:
+          base-path: /actuator
+          exposure:
+            include: health,info,metrics
+      endpoint:
+        health:
+          show-details: when_authorized
+      health:
+        defaults:
+          enabled: true
+
+    logging:
+      level:
+        root: INFO
+        com.accountia: ${LOG_LEVEL_APP:DEBUG}
+
+  # Development environment overrides
+  accountia-dev.yml: |
+    spring:
+      jpa:
+        show-sql: true
+        properties:
+          hibernate:
+            format_sql: true
+
+    logging:
+      level:
+        com.accountia: DEBUG
+        org.springframework.cloud: DEBUG
+        org.springframework.security: DEBUG
+
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: "*"
+      endpoint:
+        health:
+          show-details: always
+
+    # Production CORS settings
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS}
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: "*"
+      allow-credentials: true
+
+  # Test environment configuration
+  accountia-test.yml: |
+    spring:
+      jpa:
+        show-sql: false
+        hibernate:
+          ddl-auto: create-drop
+      datasource:
+        url: jdbc:h2:mem:testdb
+        username: sa
+        password: ""
+        driver-class-name: org.h2.Driver
+
+    logging:
+      level:
+        com.accountia: INFO
+        org.springframework.cloud: INFO
+
+    security:
+      jwt:
+        secret: ${SECURITY_JWT_SECRET:test-jwt-secret-for-testing-only}
+        expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:300000}
+
+  # Auth service configuration
+  auth-ms.yml: |
+    server:
+      port: ${SERVER_PORT:8081}
+      error:
+        include-message: ${SERVER_ERROR_INCLUDE_MESSAGE:never}
+
+    eureka:
+      client:
+        enabled: ${EUREKA_ENABLED:true}
+        service-url:
+          defaultZone: http://eureka-server:8761/eureka/
+        register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:true}
+        fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
+        healthcheck:
+          enabled: true
+      instance:
+        prefer-ip-address: ${EUREKA_PREFER_IP:true}
+        lease-renewal-interval-in-seconds: 30
+        lease-expiration-duration-in-seconds: 90
+
+    # JWT Configuration
+    security:
+      jwt:
+        secret: ${SECURITY_JWT_SECRET:accountia-dev-jwt-secret-min-32-chars-for-local-testing-only}
+        expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:86400000}
+
+    # Admin seed configuration
+    admin:
+      seed:
+        email: ${ADMIN_SEED_EMAIL:admin@accountia.test}
+        username: ${ADMIN_SEED_USERNAME:admin}
+        tenant-id: ${ADMIN_SEED_TENANT_ID:tenant_default}
+        password: ${ADMIN_SEED_PASSWORD:}
+
+  # Business service configuration
+  business-ms.yml: |
+    server:
+      port: ${SERVER_PORT:8080}
+
+    eureka:
+      client:
+        enabled: ${EUREKA_ENABLED:true}
+        service-url:
+          defaultZone: http://eureka-server:8761/eureka/
+        register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:true}
+        fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
+        healthcheck:
+          enabled: true
+        registry-fetch-interval-seconds: 30
+      instance:
+        prefer-ip-address: ${EUREKA_PREFER_IP:true}
+        lease-renewal-interval-in-seconds: 30
+        lease-expiration-duration-in-seconds: 90
+        hostname: ${EUREKA_INSTANCE_HOSTNAME:business-ms}
+        non-secure-port: ${SERVER_PORT:8080}
+        secure-port-enabled: false
+
+    # JWT Configuration
+    security:
+      jwt:
+        secret: ${SECURITY_JWT_SECRET:accountia-dev-jwt-secret-min-32-chars-for-local-testing-only}
+        expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:86400000}
+
+  # Client service configuration
+  client-ms.yml: |
+    server:
+      port: ${SERVER_PORT:8085}
+
+    eureka:
+      client:
+        enabled: ${EUREKA_ENABLED:true}
+        service-url:
+          defaultZone: http://eureka-server:8761/eureka/
+        register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:true}
+        fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
+        healthcheck:
+          enabled: true
+        registry-fetch-interval-seconds: 30
+      instance:
+        prefer-ip-address: ${EUREKA_PREFER_IP:true}
+        lease-renewal-interval-in-seconds: 30
+        lease-expiration-duration-in-seconds: 90
+        hostname: ${EUREKA_INSTANCE_HOSTNAME:client-ms}
+        non-secure-port: ${SERVER_PORT:8085}
+        secure-port-enabled: false
+
+    # JWT Configuration
+    security:
+      jwt:
+        secret: ${SECURITY_JWT_SECRET:accountia-dev-jwt-secret-min-32-chars-for-local-testing-only}
+        expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:86400000}
+
+  # Expense service configuration
+  expense-ms.yml: |
+    server:
+      port: ${SERVER_PORT:8084}
+
+    eureka:
+      client:
+        enabled: ${EUREKA_ENABLED:true}
+        service-url:
+          defaultZone: http://eureka-server:8761/eureka/
+        register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:true}
+        fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
+        healthcheck:
+          enabled: true
+        registry-fetch-interval-seconds: 30
+      instance:
+        prefer-ip-address: ${EUREKA_PREFER_IP:true}
+        lease-renewal-interval-in-seconds: 30
+        lease-expiration-duration-in-seconds: 90
+        hostname: ${EUREKA_INSTANCE_HOSTNAME:expense-ms}
+        non-secure-port: ${SERVER_PORT:8084}
+        secure-port-enabled: false
+
+    # JWT Configuration
+    security:
+      jwt:
+        secret: ${SECURITY_JWT_SECRET:accountia-dev-jwt-secret-min-32-chars-for-local-testing-only}
+        expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:86400000}
+
+  # Invoice service configuration
+  invoice-ms.yml: |
+    server:
+      port: ${SERVER_PORT:8083}
+
+    eureka:
+      client:
+        enabled: ${EUREKA_ENABLED:true}
+        service-url:
+          defaultZone: http://eureka-server:8761/eureka/
+        register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:true}
+        fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
+        healthcheck:
+          enabled: true
+        registry-fetch-interval-seconds: 30
+      instance:
+        prefer-ip-address: ${EUREKA_PREFER_IP:true}
+        lease-renewal-interval-in-seconds: 30
+        lease-expiration-duration-in-seconds: 90
+        hostname: ${EUREKA_INSTANCE_HOSTNAME:invoice-ms}
+        non-secure-port: ${SERVER_PORT:8083}
+        secure-port-enabled: false
+
+    # JWT Configuration
+    security:
+      jwt:
+        secret: ${SECURITY_JWT_SECRET:accountia-dev-jwt-secret-min-32-chars-for-local-testing-only}
+        expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:86400000}
+
+  # API Gateway configuration
+  api-gateway.yml: |
+    server:
+      port: ${SERVER_PORT:8080}
+
+    eureka:
+      client:
+        enabled: ${EUREKA_ENABLED:true}
+        service-url:
+          defaultZone: http://eureka-server:8761/eureka/
+        register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:true}
+        fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
+        healthcheck:
+          enabled: true
+      instance:
+        prefer-ip-address: ${EUREKA_PREFER_IP:true}
+        lease-renewal-interval-in-seconds: 30
+        lease-expiration-duration-in-seconds: 90

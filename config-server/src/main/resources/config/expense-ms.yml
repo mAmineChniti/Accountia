@@ -1,0 +1,25 @@
+# Expense Microservice Configuration
+server:
+  port: 8084
+
+spring:
+  application:
+    name: expense-ms
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVICE_URL}
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    healthcheck:
+      enabled: true
+    registry-fetch-interval-seconds: 30
+  instance:
+    prefer-ip-address: false
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+    hostname: expense-ms
+    non-secure-port: 8084
+    secure-port-enabled: false

@@ -11,7 +11,7 @@ on:
 env:
   JAVA_VERSION: '21'
   MAVEN_OPTS: '-Xmx1024m'
-  SPRING_SERVICES: 'eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms'
+  SPRING_SERVICES: 'config-server eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms'
 
 jobs:
   build-and-test:
@@ -21,6 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         service:
+          - config-server
           - eureka-server
           - api-gateway
           - auth-ms
@@ -29,6 +30,8 @@ jobs:
           - expense-ms
           - invoice-ms
         include:
+          - service: config-server
+            port: 8888
           - service: eureka-server
             port: 8761
           - service: api-gateway
@@ -81,31 +84,51 @@ jobs:
           JAR_FILE=$(ls *.jar | grep -v original | head -1)
           
           # Use H2 database for services that have H2 CI configuration
-          if [[ "${{ matrix.service }}" =~ ^(auth-ms|business-ms|client-ms|expense-ms|invoice-ms)$ ]]; then
-            DATASOURCE_URL="jdbc:h2:mem:testdb"
-            DATASOURCE_USERNAME="sa"
-            DATASOURCE_PASSWORD=""
+          if [[ "${{ matrix.service }}" == "config-server" ]]; then
+            # Config server uses native profile and doesn't need database
+            java -jar "$JAR_FILE" \
+              --spring.profiles.active=native \
+              --server.port=${{ matrix.port }} \
+              --spring.cloud.config.server.native.search-locations=file:/config \
+              > ../app.log 2>&1 &
+          elif [[ "${{ matrix.service }}" =~ ^(auth-ms|business-ms|client-ms|expense-ms|invoice-ms)$ ]]; then
+            # Use H2 for CI testing with JWT secret
+            java -jar "$JAR_FILE" \
+              --spring.profiles.active=ci \
+              --server.port=${{ matrix.port }} \
+              --spring.datasource.url=jdbc:h2:mem:testdb \
+              --spring.datasource.username=sa \
+              --spring.datasource.password="" \
+              --spring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
+              --spring.jpa.hibernate.ddl-auto=create-drop \
+              --spring.config.import=optional:configserver:http://localhost:8888 \
+              --security.jwt.secret=${{ secrets.SECURITY_JWT_SECRET }} \
+              --eureka.client.enabled=false \
+              --spring.cloud.discovery.enabled=false \
+              > ../app.log 2>&1 &
           else
+            # For eureka-server and api-gateway
             DATASOURCE_URL="${{ secrets.SPRING_DATASOURCE_URL }}"
             DATASOURCE_USERNAME="${{ secrets.SPRING_DATASOURCE_USERNAME }}"
             DATASOURCE_PASSWORD="${{ secrets.SPRING_DATASOURCE_PASSWORD }}"
+            
+            java -jar "$JAR_FILE" \
+              --spring.profiles.active=ci \
+              --server.port=${{ matrix.port }} \
+              --spring.datasource.url=$DATASOURCE_URL \
+              --spring.datasource.username=$DATASOURCE_USERNAME \
+              --spring.datasource.password=$DATASOURCE_PASSWORD \
+              --spring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
+              --spring.jpa.hibernate.ddl-auto=create-drop \
+              --security.jwt.secret=${{ secrets.SECURITY_JWT_SECRET }} \
+              --eureka.client.enabled=true \
+              --eureka.client.register-with-eureka=true \
+              --eureka.client.fetch-registry=true \
+              --eureka.client.service-url.defaultZone=${{ secrets.EUREKA_SERVICE_URL }} \
+              --spring.cloud.discovery.enabled=true \
+              --spring.cloud.gateway.server.webflux.discovery.locator.enabled=true \
+              > ../app.log 2>&1 &
           fi
-          
-          java -jar "$JAR_FILE" \
-            --spring.profiles.active=ci \
-            --server.port=${{ matrix.port }} \
-            --spring.datasource.url=$DATASOURCE_URL \
-            --spring.datasource.username=$DATASOURCE_USERNAME \
-            --spring.datasource.password=$DATASOURCE_PASSWORD \
-            --spring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
-            --spring.jpa.hibernate.ddl-auto=create-drop \
-            --eureka.client.enabled=true \
-            --eureka.client.register-with-eureka=true \
-            --eureka.client.fetch-registry=true \
-            --eureka.client.service-url.defaultZone=${{ secrets.EUREKA_SERVICE_URL }} \
-            --spring.cloud.discovery.enabled=true \
-            --spring.cloud.gateway.server.webflux.discovery.locator.enabled=true \
-            > ../app.log 2>&1 &
           
           echo $! > ../app.pid
           echo "Application PID: $(cat ../app.pid)"
@@ -165,6 +188,7 @@ jobs:
       fail-fast: false
       matrix:
         service:
+          - config-server
           - eureka-server
           - api-gateway
           - auth-ms
@@ -349,7 +373,7 @@ jobs:
           echo ""
           echo "📋 Checking application.yml files for hardcoded sensitive defaults..."
           
-          SERVICES="eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
+          SERVICES="config-server eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
           SENSITIVE_PATTERNS="PASSWORD.*:|.*_PASSWORD:.*[^}]$|SECRET.*:.*[^}]$|DATASOURCE_URL.*:.*jdbc:"
           
           for service in $SERVICES; do
@@ -434,7 +458,7 @@ jobs:
         run: |
           echo "::group::Checking application configurations"
           
-          SERVICES="eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
+          SERVICES="config-server eureka-server api-gateway auth-ms business-ms client-ms expense-ms invoice-ms"
           
           for service in $SERVICES; do
             echo "Checking $service..."

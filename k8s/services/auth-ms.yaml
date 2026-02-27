@@ -25,12 +25,22 @@ spec:
           env:
             - name: SERVER_PORT
               value: "8081"
+            - name: SPRING_PROFILES_ACTIVE
+              value: "dev"
+            - name: SPRING_CONFIG_IMPORT
+              value: "optional:configserver:http://config-server:8888"
+            - name: SPRING_APPLICATION_NAME
+              value: "auth-ms"
+            # Environment variables for config resolution
             - name: SPRING_DATASOURCE_URL
-              value: "jdbc:mysql://mysql:3306/accountia"
+              valueFrom:
+                configMapKeyRef:
+                  name: accountia-config
+                  key: SPRING_DATASOURCE_URL
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
-                secretKeyRef:
-                  name: accountia-secrets
+                configMapKeyRef:
+                  name: accountia-config
                   key: SPRING_DATASOURCE_USERNAME
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
@@ -49,8 +59,8 @@ spec:
                   key: RABBITMQ_PORT
             - name: RABBITMQ_USERNAME
               valueFrom:
-                secretKeyRef:
-                  name: accountia-secrets
+                configMapKeyRef:
+                  name: accountia-config
                   key: RABBITMQ_USERNAME
             - name: RABBITMQ_PASSWORD
               valueFrom:
@@ -72,6 +82,31 @@ spec:
                 configMapKeyRef:
                   name: accountia-config
                   key: REDIS_PORT
+            - name: EUREKA_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: accountia-config
+                  key: EUREKA_SERVICE_URL
+            - name: ADMIN_SEED_EMAIL
+              valueFrom:
+                configMapKeyRef:
+                  name: accountia-config
+                  key: ADMIN_SEED_EMAIL
+            - name: ADMIN_SEED_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: accountia-config
+                  key: ADMIN_SEED_USERNAME
+            - name: ADMIN_SEED_TENANT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: accountia-config
+                  key: ADMIN_SEED_TENANT_ID
+            - name: ADMIN_SEED_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: accountia-secrets
+                  key: ADMIN_SEED_PASSWORD
           readinessProbe:
             httpGet:
               path: /actuator/health

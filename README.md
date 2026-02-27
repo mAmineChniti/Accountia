@@ -13,6 +13,8 @@ A multi-tenant SaaS platform for financial management built with microservices a
 | Component | Technology |
 |-----------|------------|
 | **API Gateway** | Spring Cloud Gateway (Java 21) |
+| **Config Server** | Spring Cloud Config Server (Native File System) |
+| **Service Discovery** | Eureka Server |
 | **Microservices** | Spring Boot 3.x (Java 21) |
 | **Reporting Service** | FastAPI (Python 3.11) |
 | **Authentication** | JWT-based Authentication |
@@ -25,6 +27,8 @@ A multi-tenant SaaS platform for financial management built with microservices a
 
 ```bash
 accountia/
+├── config-server/        # Spring Cloud Config Server - Centralized configuration
+├── eureka-server/        # Eureka Server - Service discovery
 ├── api-gateway/          # Spring Cloud Gateway - JWT validation & routing
 ├── auth-ms/              # Authentication microservice
 ├── business-ms/          # Business management microservice
@@ -49,6 +53,34 @@ All routes are exposed through the API Gateway at `http://localhost:8080`:
 | Invoice MS | `/api/invoices/**` | Invoice CRUD operations |
 | Expense MS | `/api/expense/**` | Expense tracking |
 | Reporting MS | `/api/reporting/**` | Analytics and reports |
+
+## Configuration Management
+
+This project uses **Spring Cloud Config Server** for centralized configuration management:
+
+### Config Server
+- **URL**: http://localhost:8888
+- **Backend**: Native file system (`file:/config`)
+- **Environment Variable Resolution**: `${VARIABLE:default}` syntax supported
+
+### Configuration Files
+All microservice configurations are stored in `config-server/src/main/resources/config/`:
+- `accountia.yml` - Common configuration for all services
+- `accountia-dev.yml` - Development environment overrides
+- `accountia-test.yml` - Test environment configuration
+- `{service-name}.yml` - Service-specific configuration
+
+### Environment Variables
+The system supports environment variable substitution using:
+```yaml
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/accountia}
+    password: ${SPRING_DATASOURCE_PASSWORD:default-password}
+```
+
+### Service Discovery
+All services register with **Eureka Server** at http://localhost:8761 for service discovery and load balancing.
 
 ## Getting Started
 
@@ -79,6 +111,8 @@ make down
 
 | Service | URL |
 |---------|-----|
+| Config Server | http://localhost:8888 |
+| Eureka Server | http://localhost:8761 |
 | API Gateway | http://localhost:8080 |
 | RabbitMQ Management | http://localhost:15672 |
 
