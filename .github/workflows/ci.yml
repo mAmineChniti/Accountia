@@ -213,7 +213,7 @@ jobs:
           echo "✅ Dockerfile found: ${{ matrix.service }}/Dockerfile"
 
       - name: Build Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.service }}
           file: ${{ matrix.service }}/Dockerfile
