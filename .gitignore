@@ -1,0 +1,11 @@
+/.idea
+/node_modules
+/target
+*.iml
+*.class
+*.log
+.env
+/docker/.env
+**/target/
+**/*.jar
+/.DS_Store

@@ -1,0 +1,81 @@
+version: 2
+updates:
+  - package-ecosystem: "maven"
+    directory: "/auth-ms"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      - dependency-name: "org.projectlombok:lombok"
+        versions: ["1.18.31"]
+
+  - package-ecosystem: "maven"
+    directory: "/api-gateway"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"
+    allow:
+      - dependency-type: "all"
+
+  - package-ecosystem: "maven"
+    directory: "/business-ms"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"
+    allow:
+      - dependency-type: "all"
+
+  - package-ecosystem: "maven"
+    directory: "/client-ms"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"
+    allow:
+      - dependency-type: "all"
+
+  - package-ecosystem: "maven"
+    directory: "/expense-ms"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"
+    allow:
+      - dependency-type: "all"
+
+  - package-ecosystem: "maven"
+    directory: "/invoice-ms"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"
+    allow:
+      - dependency-type: "all"
+
+  - package-ecosystem: "pip"
+    directory: "/reporting-ms"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"
+    allow:
+      - dependency-type: "all"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "mAmineChniti"

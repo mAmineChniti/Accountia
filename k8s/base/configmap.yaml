@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: accountia-config
+  namespace: accountia
+  labels:
+    app.kubernetes.io/name: accountia
+    app.kubernetes.io/part-of: accountia-platform
+data:
+  # RabbitMQ Configuration
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "/"
+  
+  # Redis Configuration
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  
+  # MySQL Configuration
+  MYSQL_HOST: "mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_DATABASE: "accountia"
+  
+  # PostgreSQL Configuration
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "accountia_reporting"
+  
+  # Eureka Configuration
+  EUREKA_SERVICE_URL: "http://eureka-server:8761/eureka/"
+  EUREKA_ENABLED: "true"
+  EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+  EUREKA_CLIENT_FETCH_REGISTRY: "true"
+  EUREKA_PREFER_IP: "true"
+  
+  # Reporting Service Configuration (Python FastAPI)
+  REPORTING_MS_URL: "http://reporting-ms:8000"
+  
+  # Logging
+  LOG_LEVEL_APP: "INFO"
+  LOG_LEVEL_EUREKA: "INFO"
+  LOG_LEVEL_DISCOVERY: "INFO"
+  JPA_SHOW_SQL: "false"

@@ -1,0 +1,17 @@
+SHELL := /bin/bash
+
+.PHONY: build up down logs
+
+all: build up
+
+build:
+	docker compose build
+
+up:
+	docker compose up -d --build --remove-orphans
+
+down:
+	docker compose down --volumes
+
+logs:
+	docker compose logs -f

@@ -1,0 +1,52 @@
+# CI Profile - Uses H2 in-memory database and disables external services
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
+  main:
+    lazy-initialization: true
+    allow-bean-definition-overriding: true
+  cloud:
+    discovery:
+      enabled: false
+  
+  # H2 In-Memory Database for CI
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MYSQL
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://dummy-issuer.local/realms/dummy
+          jwk-set-uri: https://dummy-issuer.local/realms/dummy/protocol/openid-connect/certs
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    db:
+      enabled: true
+    rabbit:
+      enabled: false
+
+logging:
+  level:
+    org.springframework.security: WARN
+    com.accountia: INFO

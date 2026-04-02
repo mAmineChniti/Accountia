@@ -1,0 +1,16 @@
+# Ce fichier désactive UNIQUEMENT Keycloak pour lancer le gateway en local.
+# Tout le reste (routes, eureka, cors) vient de application.yml sans changement.
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.reactive.ReactiveOAuth2ResourceServerAutoConfiguration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+management:
+  health:
+    redis:
+      enabled: false
