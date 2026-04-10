@@ -2,6 +2,7 @@
   "realm": "accountia",
   "enabled": true,
   "displayName": "Accountia",
+  "loginTheme": "accountia",
   "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,

@@ -3,10 +3,9 @@ services:
     image: mysql:8.0
     container_name: accountia-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_ALLOW_EMPTY_PASSWORD: ${MYSQL_ALLOW_EMPTY_PASSWORD:-yes}
+      MYSQL_ROOT_HOST: ${MYSQL_ROOT_HOST:-%}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-accountia}
-      MYSQL_USER: ${SPRING_DATASOURCE_USERNAME}
-      MYSQL_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
     volumes:
       - mysql-data:/var/lib/mysql
     ports:
@@ -81,16 +80,21 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      KC_DB: dev-mem
+      KC_DB: dev-file
+      KC_HOSTNAME: localhost
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
       KC_HTTP_PORT: 8080
+      KC_SPI_THEME_CACHE_THEMES: "false"
+      KC_SPI_THEME_CACHE_TEMPLATES: "false"
     ports:
       - "8180:8080"
     volumes:
+      - keycloak-data:/opt/keycloak/data
       - ./keycloak/realm-accountia.json:/opt/keycloak/data/import/realm-accountia.json
+      - ./keycloak/themes:/opt/keycloak/themes
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\n\r\n' >&3; cat <&3 | grep -q '200 OK'"]
+      test: ["CMD", "/usr/bin/bash", "-lc", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /realms/accountia HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3; grep -q '200 OK' <&3"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -128,8 +132,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
-      - EUREKA_SERVICE_URL=http://eureka-server:8761/eureka/
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - EUREKA_SERVICE_URL=http://admin:admin@eureka-server:8761/eureka/
+      - KEYCLOAK_ISSUER_URI=http://localhost:8180/realms/accountia
       - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
     ports:
       - "8080:8080"
@@ -138,6 +142,30 @@ services:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - accountia-network
+
+  # =====================================================
+  # FRONTEND (Next.js)
+  # Code source: ../accountia-web
+  # =====================================================
+  frontend:
+    build:
+      context: ../accountia-web
+      dockerfile: ../Accountia-client-ms/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND: http://localhost:8080
+    container_name: accountia-frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND=http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway:
+        condition: service_started
       keycloak:
         condition: service_healthy
     networks:
@@ -161,13 +189,11 @@ services:
       - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - EUREKA_SERVICE_URL=http://eureka-server:8761/eureka/
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - EUREKA_SERVICE_URL=http://admin:admin@eureka-server:8761/eureka/
+      - KEYCLOAK_ISSUER_URI=http://localhost:8180/realms/accountia
       - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
       - JPA_DDL_AUTO=update
       - ADMIN_SEED_PASSWORD=${ADMIN_SEED_PASSWORD:-admin}
-    ports:
-      - "8081:8081"
     depends_on:
       mysql:
         condition: service_healthy
@@ -195,11 +221,9 @@ services:
       - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
-      - EUREKA_SERVICE_URL=http://eureka-server:8761/eureka/
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - EUREKA_SERVICE_URL=http://admin:admin@eureka-server:8761/eureka/
+      - KEYCLOAK_ISSUER_URI=http://localhost:8180/realms/accountia
       - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
-    ports:
-      - "8082:8080"
     depends_on:
       mysql:
         condition: service_healthy
@@ -226,11 +250,9 @@ services:
       - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
-      - EUREKA_SERVICE_URL=http://eureka-server:8761/eureka/
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - EUREKA_SERVICE_URL=http://admin:admin@eureka-server:8761/eureka/
+      - KEYCLOAK_ISSUER_URI=http://localhost:8180/realms/accountia
       - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
-    ports:
-      - "8085:8085"
     depends_on:
       mysql:
         condition: service_healthy
@@ -251,16 +273,15 @@ services:
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - JPA_DDL_AUTO=update
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
-      - EUREKA_SERVICE_URL=http://eureka-server:8761/eureka/
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - EUREKA_SERVICE_URL=http://admin:admin@eureka-server:8761/eureka/
+      - KEYCLOAK_ISSUER_URI=http://localhost:8180/realms/accountia
       - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
-    ports:
-      - "8083:8083"
     depends_on:
       mysql:
         condition: service_healthy
@@ -279,18 +300,23 @@ services:
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
-      - EUREKA_SERVICE_URL=http://eureka-server:8761/eureka/
-      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - EUREKA_SERVICE_URL=http://admin:admin@eureka-server:8761/eureka/
+      - KEYCLOAK_ISSUER_URI=http://localhost:8180/realms/accountia
       - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
-    ports:
-      - "8084:8084"
     depends_on:
       mysql:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
@@ -308,8 +334,6 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-accountia_reporting}
       - POSTGRES_USER=${POSTGRES_USER:-accountia}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-accountia}
-    ports:
-      - "8086:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -324,3 +348,4 @@ volumes:
   mysql-data:
   postgres-data:
   redis-data:
+  keycloak-data:

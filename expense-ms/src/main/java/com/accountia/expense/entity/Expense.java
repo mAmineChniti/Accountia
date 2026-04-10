@@ -41,6 +41,9 @@ public class Expense {
     @Column(name = "client_id")
     private Integer clientId;
 
+    @Column(name = "owner_subject")
+    private String ownerSubject;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -75,6 +78,8 @@ public class Expense {
     public void setBusinessId(Long businessId) { this.businessId = businessId; }
     public Integer getClientId() { return clientId; }
     public void setClientId(Integer clientId) { this.clientId = clientId; }
+    public String getOwnerSubject() { return ownerSubject; }
+    public void setOwnerSubject(String ownerSubject) { this.ownerSubject = ownerSubject; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

@@ -50,7 +50,7 @@ spring:
             - id: invoice-ms
               uri: lb://invoice-ms
               predicates:
-                - Path=/api/invoices/**
+                - Path=/api/invoice/**
               filters:
                 - StripPrefix=0
             - id: expense-ms

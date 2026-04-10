@@ -24,4 +24,6 @@ public interface BusinessRepository extends JpaRepository<Business, Long> {
     Optional<Business> findBySiret(String siret);
 
     List<Business> findByOwnerUserId(Long ownerUserId);
+
+    List<Business> findByOwnerSubject(String ownerSubject);
 }

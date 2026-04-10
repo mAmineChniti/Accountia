@@ -19,5 +19,11 @@ public interface ClientRepository extends JpaRepository<Client, Integer> {
 
     // Recherche par entreprise
     List<Client> findByNomEntrepriseContainingIgnoreCase(String nomEntreprise);
+
+    List<Client> findByOwnerSubject(String ownerSubject);
+
+    List<Client> findByOwnerSubjectAndNomContaining(String ownerSubject, String nom);
+
+    List<Client> findByOwnerSubjectAndNomEntrepriseContainingIgnoreCase(String ownerSubject, String nomEntreprise);
 }
 

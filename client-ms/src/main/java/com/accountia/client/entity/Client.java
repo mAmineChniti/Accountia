@@ -25,6 +25,9 @@ public class Client {
     @Column(name = "nom_entreprise")
     private String nomEntreprise;
 
+    @Column(name = "owner_subject")
+    private String ownerSubject;
+
     // Constructeurs
     public Client() {}
 
@@ -59,6 +62,9 @@ public class Client {
 
     public String getNomEntreprise() { return nomEntreprise; }
     public void setNomEntreprise(String nomEntreprise) { this.nomEntreprise = nomEntreprise; }
+
+    public String getOwnerSubject() { return ownerSubject; }
+    public void setOwnerSubject(String ownerSubject) { this.ownerSubject = ownerSubject; }
 
     @Override
     public String toString() {

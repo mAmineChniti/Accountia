@@ -4,16 +4,20 @@ import com.accountia.business.dto.BusinessRequest;
 import com.accountia.business.dto.ClientDTO;
 import com.accountia.business.entity.Business;
 import com.accountia.business.feign.ClientFeignClient;
+import com.accountia.business.messaging.BusinessEventProducer;
 import com.accountia.business.repository.BusinessRepository;
+import com.accountia.business.util.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import com.accountia.business.dto.BusinessWithClientsDTO;
+import java.util.stream.Collectors;
 
 @Service
 public class BusinessService {
@@ -22,29 +26,48 @@ public class BusinessService {
 
     private final BusinessRepository businessRepository;
     private final ClientFeignClient clientFeignClient;
+    private final BusinessEventProducer businessEventProducer;
 
     public BusinessService(BusinessRepository businessRepository,
-                           ClientFeignClient clientFeignClient) {
+                           ClientFeignClient clientFeignClient,
+                           BusinessEventProducer businessEventProducer) {
         this.businessRepository = businessRepository;
         this.clientFeignClient = clientFeignClient;
+        this.businessEventProducer = businessEventProducer;
     }
 
     // ─── CRUD ────────────────────────────────────────────────────────────────
 
     public List<Business> getAll() {
-        return businessRepository.findAll();
+        if (SecurityUtil.isAdmin()) {
+            return businessRepository.findAll();
+        }
+        String subject = SecurityUtil.getCurrentSubject();
+        if (subject == null || subject.isBlank()) {
+            return Collections.emptyList();
+        }
+        return businessRepository.findByOwnerSubject(subject);
     }
 
     public Optional<Business> getById(Long id) {
-        return businessRepository.findById(id);
+        return businessRepository.findById(id)
+                .filter(this::canAccessBusiness);
     }
 
     public List<Business> searchByNom(String nom) {
-        return businessRepository.findByNomContaining(nom);
+        List<Business> businesses = businessRepository.findByNomContaining(nom);
+        if (SecurityUtil.isAdmin()) {
+            return businesses;
+        }
+        return businesses.stream().filter(this::canAccessBusiness).collect(Collectors.toList());
     }
 
     public List<Business> getBySecteur(String secteur) {
-        return businessRepository.findBySecteurIgnoreCase(secteur);
+        List<Business> businesses = businessRepository.findBySecteurIgnoreCase(secteur);
+        if (SecurityUtil.isAdmin()) {
+            return businesses;
+        }
+        return businesses.stream().filter(this::canAccessBusiness).collect(Collectors.toList());
     }
 
     public Business create(BusinessRequest request, Long ownerUserId) {
@@ -67,13 +90,18 @@ public class BusinessService {
         b.setEmail(request.getEmail());
         b.setTelephone(request.getTelephone());
         b.setOwnerUserId(ownerUserId);
+        b.setOwnerSubject(SecurityUtil.getCurrentSubject());
 
-        return businessRepository.save(b);
+        Business created = businessRepository.save(b);
+        businessEventProducer.publishBusinessCreated(created);
+        return created;
     }
 
     public Business update(Long id, BusinessRequest request) {
         Business b = businessRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Business introuvable avec id: " + id));
+
+        ensureOwnershipOrAdmin(b);
 
         if (request.getNom() != null) b.setNom(request.getNom());
         if (request.getSecteur() != null) b.setSecteur(request.getSecteur());
@@ -94,14 +122,17 @@ public class BusinessService {
             b.setSiret(request.getSiret());
         }
 
-        return businessRepository.save(b);
+        Business updated = businessRepository.save(b);
+        businessEventProducer.publishBusinessUpdated(updated);
+        return updated;
     }
 
     public void delete(Long id) {
-        if (!businessRepository.existsById(id)) {
-            throw new IllegalArgumentException("Business introuvable avec id: " + id);
-        }
+        Business business = businessRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Business introuvable avec id: " + id));
+        ensureOwnershipOrAdmin(business);
         businessRepository.deleteById(id);
+        businessEventProducer.publishBusinessDeleted(id);
     }
 
     // ─── FEIGN : Appel vers client-ms ────────────────────────────────────────
@@ -175,4 +206,19 @@ public class BusinessService {
                 return null;
             }
         }
+
+    private void ensureOwnershipOrAdmin(Business business) {
+        if (canAccessBusiness(business)) {
+            return;
+        }
+        throw new AccessDeniedException("Acces refuse: vous ne pouvez modifier que vos propres businesses");
+    }
+
+    private boolean canAccessBusiness(Business business) {
+        if (SecurityUtil.isAdmin()) {
+            return true;
+        }
+        String subject = SecurityUtil.getCurrentSubject();
+        return subject != null && subject.equals(business.getOwnerSubject());
+    }
 }

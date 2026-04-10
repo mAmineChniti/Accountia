@@ -35,6 +35,9 @@ public class Business {
     @Column(name = "owner_user_id")
     private Long ownerUserId;
 
+    @Column(name = "owner_subject")
+    private String ownerSubject;
+
     @Column(name = "created_at")
     private Instant createdAt;
 
@@ -79,6 +82,9 @@ public class Business {
 
     public Long getOwnerUserId() { return ownerUserId; }
     public void setOwnerUserId(Long ownerUserId) { this.ownerUserId = ownerUserId; }
+
+    public String getOwnerSubject() { return ownerSubject; }
+    public void setOwnerSubject(String ownerSubject) { this.ownerSubject = ownerSubject; }
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
