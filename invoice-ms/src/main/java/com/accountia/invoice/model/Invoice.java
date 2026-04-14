@@ -1,20 +1,11 @@
 package com.accountia.invoice.model;
 
-import jakarta.persistence.*;
-import lombok.Data;
-
-import java.time.LocalDate;
-
-@Entity
-@Table(name = "invoices")
-@Data
+/**
+ * @deprecated Replaced by {@link com.accountia.invoice.domain.entity.Invoice}.
+ * This class is kept as a placeholder to avoid breaking imports in legacy code.
+ * Do NOT add JPA annotations here — the real entity lives in the domain package.
+ */
+@Deprecated
 public class Invoice {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    private String tenantId;
-    private String clientName;
-    private Double amount;
-    private LocalDate issueDate;
+    // Legacy placeholder — use com.accountia.invoice.domain.entity.Invoice instead
 }

@@ -1,8 +1,111 @@
-server:
-  port: ${SERVER_PORT:8080}
-
 spring:
-  config:
-    import: optional:configserver:http://config-server:8888
   application:
-    name: invoice-ms
+    name: invoice-ms   # Used by Eureka (Sprint 2) and logs
+
+  # ── Config Server (Sprint 2) ────────────────────────────────────────────────
+  # "optional:" prefix means the app starts normally even when config-server is down
+  config:
+    import: "optional:configserver:http://config-server:8888"
+
+  # ── DataSource ───────────────────────────────────────────────────────────────
+  datasource:
+    # MariaDB via XAMPP — root with no password
+    url: jdbc:mariadb://localhost:3306/invoice_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+    username: root
+    password: ""
+    driver-class-name: org.mariadb.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  # ── JPA / Hibernate ──────────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate        # Flyway creates the schema; Hibernate only validates it
+    show-sql: false             # Set true for dev debugging
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+        format_sql: true
+        default_batch_fetch_size: 20  # Avoid N+1 on collections
+
+  # ── Flyway: versioned SQL migrations in src/main/resources/db/migration ──────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true   # Safe for first run on an existing empty DB
+
+  # ── RabbitMQ (Sprint 1: disabled. Sprint 2: set enabled=true + credentials) ──
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+    virtual-host: /
+
+  # ── Autoconfigure: exclude RabbitMQ until Sprint 2 ──────────────────────────
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
+  # ── Servlet Multipart (for CSV/Excel invoice import) ─────────────────────────
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# ── Server ────────────────────────────────────────────────────────────────────
+# Port 4789 matches the Next.js frontend BASE_URL (http://127.0.0.1:4789/api)
+# Context path /api means all controller mappings are prefixed: /api/invoices/...
+server:
+  port: ${SERVER_PORT:4789}
+  servlet:
+    context-path: /api
+
+# ── Eureka Discovery (Sprint 2: enabled) ──────────────────────────────────────
+eureka:
+  client:
+    enabled: false              # Sprint 2: change to true
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# ── Swagger / OpenAPI (available at http://localhost:8080/swagger-ui.html) ────
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+    display-request-duration: true
+
+# ── Actuator (health probe for Kubernetes / Docker) ──────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# ── JWT Security ──────────────────────────────────────────────────────────────
+SECURITY_JWT_SECRET: ${JWT_SECRET:defaultSecretKeyThatShouldBeAtLeast32CharactersLong}
+SECURITY_JWT_EXPIRATION: ${JWT_EXPIRATION:86400000}
+
+# ── AI / OpenAI Integration ───────────────────────────────────────────────────
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY:}             # Leave empty to use rule-based fallback
+    model: gpt-4o-mini
+    base-url: https://api.openai.com/v1
+    enabled: ${AI_ENABLED:true}
+    timeout-seconds: 30
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.accountia.invoice: DEBUG
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN

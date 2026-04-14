@@ -1,0 +1,813 @@
+{
+  "info": {
+    "name": "Accountia — Invoice Microservice",
+    "description": "Complete test collection for the Invoice microservice.\n\n**HOW TO USE:**\n1. Run folder '0. Get Token' first → copy the token\n2. Edit collection → Variables → paste token in 'jwt_token'\n3. All other requests use {{jwt_token}} automatically\n\nBase URL: http://localhost:4789/api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",    "value": "http://localhost:4789/api" },
+    { "key": "jwt_token",  "value": "PASTE_TOKEN_HERE_AFTER_RUNNING_GET_TOKEN" },
+    { "key": "businessId", "value": "biz-001" },
+    { "key": "invoice_id", "value": "" },
+    { "key": "receipt_id", "value": "" },
+    { "key": "comment_id", "value": "" },
+    { "key": "recurring_id","value": "" }
+  ],
+  "item": [
+
+    {
+      "name": "0. Auth — Get Token",
+      "item": [
+        {
+          "name": "Generate JWT Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('jwt_token', json.token);",
+                  "console.log('Token saved:', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/token", "host": ["{{baseUrl}}"], "path": ["auth","token"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@accountia.com\",\n  \"userId\": \"user-001\",\n  \"username\": \"Ahmed Manager\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "1. Health Check",
+      "item": [
+        {
+          "name": "Health Check (no auth needed)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/invoices/health", "host": ["{{baseUrl}}"], "path": ["invoices","health"] }
+          }
+        },
+        {
+          "name": "Actuator Health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/actuator/health", "host": ["{{baseUrl}}"], "path": ["actuator","health"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "2. Invoices — Issued (Issuer Side)",
+      "item": [
+        {
+          "name": "2.1 Create Invoice — External Client (DRAFT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.id) pm.collectionVariables.set('invoice_id', json.id);",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Status is DRAFT', () => pm.expect(json.status).to.eql('DRAFT'));",
+                  "pm.test('Invoice number generated', () => pm.expect(json.invoiceNumber).to.match(/INV-\\d{4}-\\d{5}/));",
+                  "console.log('Created invoice ID:', json.id, '| Number:', json.invoiceNumber);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices", "host": ["{{baseUrl}}"], "path": ["invoices"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"currency\": \"TND\",\n  \"issuedDate\": \"2026-04-14\",\n  \"dueDate\": \"2026-05-14\",\n  \"description\": \"Développement application web - Mai 2026\",\n  \"paymentTerms\": \"Net 30\",\n  \"recipient\": {\n    \"type\": \"EXTERNAL\",\n    \"email\": \"client@acme.tn\",\n    \"displayName\": \"Acme Corporation\"\n  },\n  \"lineItems\": [\n    {\n      \"productId\": \"prod-001\",\n      \"productName\": \"Développement Frontend React\",\n      \"quantity\": 10,\n      \"unitPrice\": 150.00\n    },\n    {\n      \"productId\": \"prod-002\",\n      \"productName\": \"Développement Backend Spring Boot\",\n      \"quantity\": 8,\n      \"unitPrice\": 200.00\n    },\n    {\n      \"productId\": \"prod-003\",\n      \"productName\": \"Déploiement & Configuration\",\n      \"quantity\": 2,\n      \"unitPrice\": 100.00\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "2.2 Create Invoice — Platform Business Recipient",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Status is DRAFT', () => pm.expect(json.status).to.eql('DRAFT'));",
+                  "console.log('Platform invoice ID:', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices", "host": ["{{baseUrl}}"], "path": ["invoices"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"currency\": \"TND\",\n  \"issuedDate\": \"2026-04-14\",\n  \"dueDate\": \"2026-04-30\",\n  \"description\": \"Fourniture matériel informatique\",\n  \"paymentTerms\": \"Net 15\",\n  \"recipient\": {\n    \"type\": \"PLATFORM_BUSINESS\",\n    \"platformId\": \"biz-002\",\n    \"email\": \"achats@techcorp.tn\",\n    \"displayName\": \"TechCorp Tunisie\"\n  },\n  \"lineItems\": [\n    {\n      \"productId\": \"prod-100\",\n      \"productName\": \"Laptop Dell XPS 15\",\n      \"quantity\": 3,\n      \"unitPrice\": 2500.00\n    },\n    {\n      \"productId\": \"prod-101\",\n      \"productName\": \"Écran 27 pouces\",\n      \"quantity\": 3,\n      \"unitPrice\": 450.00\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "2.3 List Issued Invoices (all)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has invoices array', () => pm.expect(json.invoices).to.be.an('array'));",
+                  "pm.test('Has pagination', () => { pm.expect(json.page).to.exist; pm.expect(json.total).to.exist; });",
+                  "console.log('Total invoices:', json.total, '| Page:', json.page, '/', json.totalPages);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/issued?businessId={{businessId}}&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["invoices","issued"],
+              "query": [
+                { "key": "businessId", "value": "{{businessId}}" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "2.4 List Issued Invoices — Filter by status DRAFT",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/issued?businessId={{businessId}}&status=DRAFT&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["invoices","issued"],
+              "query": [
+                { "key": "businessId", "value": "{{businessId}}" },
+                { "key": "status", "value": "DRAFT" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "2.5 Get Single Invoice by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has line items', () => pm.expect(json.lineItems).to.be.an('array').with.length.above(0));",
+                  "pm.test('Has recipient', () => pm.expect(json.recipient).to.exist);",
+                  "console.log('Invoice:', json.invoiceNumber, '| Total:', json.totalAmount, json.currency);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            }
+          }
+        },
+
+        {
+          "name": "2.6 Update Invoice (PATCH — DRAFT only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Description updated', () => pm.expect(json.description).to.include('MODIFIÉE'));",
+                  "console.log('Updated invoice due date:', json.dueDate);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}", "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"description\": \"Développement application web - MODIFIÉE - Mai 2026\",\n  \"paymentTerms\": \"Net 45\",\n  \"dueDate\": \"2026-05-28\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "2.7 Transition — DRAFT → ISSUED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is now ISSUED', () => pm.expect(json.status).to.eql('ISSUED'));",
+                  "console.log('Invoice transitioned to:', json.status);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}/transition", "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}","transition"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"newStatus\": \"ISSUED\",\n  \"reason\": \"Envoyée au client par email le 14/04/2026\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "2.8 Transition — ISSUED → VIEWED",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}/transition", "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}","transition"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"newStatus\": \"VIEWED\",\n  \"reason\": \"Client a ouvert la facture\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "2.9 Transition — VIEWED → PARTIAL (paiement partiel)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}/transition", "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}","transition"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"newStatus\": \"PARTIAL\",\n  \"amountPaid\": 1000.00,\n  \"reason\": \"Acompte de 1000 TND reçu par virement\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "2.10 Transition — PARTIAL → PAID (solde total)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}/transition", "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}","transition"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"newStatus\": \"PAID\",\n  \"reason\": \"Solde total reçu le 20/04/2026\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "2.11 Transition — INVALID (PAID → DRAFT) — doit retourner 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 — invalid transition rejected', () => pm.response.to.have.status(400));",
+                  "console.log('Expected error:', pm.response.json().message);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}/transition", "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}","transition"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"newStatus\": \"DRAFT\",\n  \"reason\": \"Test transition invalide\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "2.12 Delete Invoice (soft delete)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "3. Invoices — Received (Recipient Inbox)",
+      "item": [
+        {
+          "name": "3.1 List invoices received by a Business",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "if (json.receipts && json.receipts.length > 0) {",
+                  "  pm.collectionVariables.set('receipt_id', json.receipts[0].id);",
+                  "  console.log('First receipt ID saved:', json.receipts[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/received/business?businessId=biz-002&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["invoices","received","business"],
+              "query": [
+                { "key": "businessId", "value": "biz-002" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "3.2 Get Received Invoice Details (Business) — marks as VIEWED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "console.log('Invoice viewed, receipt marked as viewed');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/received/business/{{receipt_id}}?businessId=biz-002",
+              "host": ["{{baseUrl}}"], "path": ["invoices","received","business","{{receipt_id}}"],
+              "query": [{ "key": "businessId", "value": "biz-002" }]
+            }
+          }
+        },
+
+        {
+          "name": "3.3 List invoices received by an Individual User",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/received/individual?userId=user-002&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["invoices","received","individual"],
+              "query": [
+                { "key": "userId", "value": "user-002" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "4. Bulk Import (CSV / Excel)",
+      "item": [
+        {
+          "name": "4.1 Import CSV File",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/import?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","import"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Upload a .csv file. Required columns: recipientType, issuedDate (YYYY-MM-DD), dueDate (YYYY-MM-DD). Optional: recipientEmail, recipientDisplayName, productNames, quantities, unitPrices, currency, description, paymentTerms"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "5. Recurring Invoices",
+      "item": [
+        {
+          "name": "5.1 Create Recurring Schedule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.id) pm.collectionVariables.set('recurring_id', json.id);",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "console.log('Recurring schedule created:', json.id, '| Name:', json.name);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/recurring", "host": ["{{baseUrl}}"], "path": ["invoices","recurring"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"name\": \"Maintenance mensuelle - Acme Corp\",\n  \"frequency\": \"MONTHLY\",\n  \"startDate\": \"2026-05-01\",\n  \"endCondition\": \"OCCURRENCES\",\n  \"maxOccurrences\": 12,\n  \"currency\": \"TND\",\n  \"dueDaysFromIssue\": 30,\n  \"description\": \"Contrat de maintenance informatique mensuel\",\n  \"paymentTerms\": \"Net 30\",\n  \"autoIssue\": false,\n  \"status\": \"ACTIVE\",\n  \"recipient\": {\n    \"type\": \"EXTERNAL\",\n    \"email\": \"client@acme.tn\",\n    \"displayName\": \"Acme Corporation\"\n  },\n  \"lineItems\": [\n    {\n      \"productName\": \"Maintenance serveurs\",\n      \"quantity\": 1,\n      \"unitPrice\": 800.00\n    },\n    {\n      \"productName\": \"Support technique 20h\",\n      \"quantity\": 20,\n      \"unitPrice\": 50.00\n    }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "5.2 List Recurring Schedules",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/recurring?businessId={{businessId}}&page=1&limit=10",
+              "host": ["{{baseUrl}}"], "path": ["invoices","recurring"],
+              "query": [
+                { "key": "businessId", "value": "{{businessId}}" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "5.3 Get Recurring Schedule by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/recurring/{{recurring_id}}?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","recurring","{{recurring_id}}"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            }
+          }
+        },
+
+        {
+          "name": "5.4 Update Recurring Schedule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/recurring/{{recurring_id}}", "host": ["{{baseUrl}}"], "path": ["invoices","recurring","{{recurring_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"name\": \"Maintenance mensuelle - Acme Corp (MODIFIÉE)\",\n  \"status\": \"PAUSED\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "5.5 Delete Recurring Schedule",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/recurring/{{recurring_id}}?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","recurring","{{recurring_id}}"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "6. Comments (Threaded)",
+      "item": [
+        {
+          "name": "6.1 Post a Comment on Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.id) pm.collectionVariables.set('comment_id', json.id);",
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "console.log('Comment created:', json.id, '| Author:', json.authorName);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/comments", "host": ["{{baseUrl}}"], "path": ["invoices","comments"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"entityType\": \"invoice\",\n  \"entityId\": \"{{invoice_id}}\",\n  \"body\": \"Facture envoyée au client par email. En attente de confirmation de réception.\",\n  \"mentions\": []\n}"
+            }
+          }
+        },
+
+        {
+          "name": "6.2 Reply to a Comment (threaded)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/comments", "host": ["{{baseUrl}}"], "path": ["invoices","comments"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"entityType\": \"invoice\",\n  \"entityId\": \"{{invoice_id}}\",\n  \"body\": \"Client a confirmé réception par téléphone. Paiement prévu le 20/05/2026.\",\n  \"parentId\": \"{{comment_id}}\",\n  \"mentions\": [\"manager@accountia.com\"]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "6.3 List Comments for Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has comments array', () => pm.expect(json.comments).to.be.an('array'));",
+                  "console.log('Comments on invoice:', json.comments.length);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/comments?businessId={{businessId}}&entityType=invoice&entityId={{invoice_id}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","comments"],
+              "query": [
+                { "key": "businessId", "value": "{{businessId}}" },
+                { "key": "entityType", "value": "invoice" },
+                { "key": "entityId", "value": "{{invoice_id}}" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "6.4 Edit a Comment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices/comments/{{comment_id}}", "host": ["{{baseUrl}}"], "path": ["invoices","comments","{{comment_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"body\": \"Facture envoyée par email ET confirmée par courrier. MODIFIÉ.\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "6.5 Delete a Comment (soft delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/comments/{{comment_id}}?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","comments","{{comment_id}}"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "7. AI Features",
+      "item": [
+        {
+          "name": "7.1 AI — Payment Risk Prediction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has riskLevel', () => pm.expect(['LOW','MEDIUM','HIGH']).to.include(json.riskLevel));",
+                  "pm.test('Has score 0-100', () => { pm.expect(json.score).to.be.a('number'); pm.expect(json.score).to.be.within(0, 100); });",
+                  "pm.test('Has recommendation', () => pm.expect(json.recommendation).to.be.a('string'));",
+                  "console.log('Risk Level:', json.riskLevel, '| Score:', json.score, '| AI Enhanced:', json.aiEnhanced);",
+                  "console.log('Recommendation:', json.recommendation);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}/ai/payment-prediction?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}","ai","payment-prediction"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            }
+          }
+        },
+
+        {
+          "name": "7.2 AI — Anomaly Detection",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has hasAnomalies boolean', () => pm.expect(json.hasAnomalies).to.be.a('boolean'));",
+                  "pm.test('Has anomalies array', () => pm.expect(json.anomalies).to.be.an('array'));",
+                  "console.log('Has anomalies:', json.hasAnomalies, '| Count:', json.anomalies.length, '| AI Enhanced:', json.aiEnhanced);",
+                  "json.anomalies.forEach(a => console.log(' -', a.severity, a.type, ':', a.message));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}/ai/anomalies?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}","ai","anomalies"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "8. Error Cases — State Machine Tests",
+      "item": [
+        {
+          "name": "8.1 Create Invoice with dueDate before issuedDate — 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/invoices", "host": ["{{baseUrl}}"], "path": ["invoices"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"{{businessId}}\",\n  \"currency\": \"TND\",\n  \"issuedDate\": \"2026-04-14\",\n  \"dueDate\": \"2026-04-01\",\n  \"recipient\": {\n    \"type\": \"EXTERNAL\",\n    \"email\": \"test@test.com\",\n    \"displayName\": \"Test\"\n  },\n  \"lineItems\": [\n    { \"productName\": \"Test\", \"quantity\": 1, \"unitPrice\": 100 }\n  ]\n}"
+            }
+          }
+        },
+
+        {
+          "name": "8.2 Get Invoice with wrong businessId — 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/issued/{{invoice_id}}?businessId=WRONG-BIZ-ID",
+              "host": ["{{baseUrl}}"], "path": ["invoices","issued","{{invoice_id}}"],
+              "query": [{ "key": "businessId", "value": "WRONG-BIZ-ID" }]
+            }
+          }
+        },
+
+        {
+          "name": "8.3 Request without JWT — 401 or 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Unauthorized (401 or 403)', () => {",
+                  "  pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/invoices/issued?businessId={{businessId}}",
+              "host": ["{{baseUrl}}"], "path": ["invoices","issued"],
+              "query": [{ "key": "businessId", "value": "{{businessId}}" }]
+            }
+          }
+        }
+      ]
+    }
+
+  ]
+}

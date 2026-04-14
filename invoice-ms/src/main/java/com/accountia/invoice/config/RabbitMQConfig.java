@@ -6,6 +6,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,8 +14,15 @@ import org.springframework.context.annotation.Configuration;
 /**
  * RabbitMQ configuration for Invoice microservice.
  * Defines exchanges, queues, and bindings for async messaging.
+ *
+ * <p>This configuration is only activated when {@code rabbitmq.enabled=true}
+ * in application.yml. In Sprint 1, RabbitMQ is disabled so this entire class
+ * is skipped — no ConnectionFactory is needed and the app starts without RabbitMQ.
+ *
+ * <p>Sprint 2: set {@code rabbitmq.enabled: true} in application.yml to activate.
  */
 @Configuration
+@ConditionalOnProperty(name = "rabbitmq.enabled", havingValue = "true", matchIfMissing = false)
 public class RabbitMQConfig {
 
     // Exchange names
