@@ -22,12 +22,16 @@ public class RabbitMQConfig {
     // Queue names
     public static final String BUSINESS_QUEUE = "business.queue";
     public static final String BUSINESS_INVOICE_QUEUE = "business.invoice.queue";
+    public static final String BUSINESS_EXPENSE_QUEUE = "business.expense.queue";
     public static final String BUSINESS_DLQ = "business.dlq";
     
     // Routing keys
     public static final String BUSINESS_ROUTING_KEY = "business.#";
     public static final String INVOICE_CREATED_ROUTING_KEY = "invoice.created";
     public static final String INVOICE_UPDATED_ROUTING_KEY = "invoice.updated";
+    public static final String EXPENSE_CREATED_ROUTING_KEY = "expense.created";
+    public static final String EXPENSE_UPDATED_ROUTING_KEY = "expense.updated";
+    public static final String EXPENSE_DELETED_ROUTING_KEY = "expense.deleted";
 
     /**
      * Topic exchange for all Accountia events.
@@ -54,12 +58,12 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Queue for receiving invoice events.
+     * Queue for receiving expense events.
      */
     @Bean
-    public Queue businessInvoiceQueue() {
+    public Queue businessExpenseQueue() {
         return QueueBuilder
-            .durable(BUSINESS_INVOICE_QUEUE)
+            .durable(BUSINESS_EXPENSE_QUEUE)
             .withArgument("x-dead-letter-exchange", "")
             .withArgument("x-dead-letter-routing-key", BUSINESS_DLQ)
             .build();
@@ -109,6 +113,42 @@ public class RabbitMQConfig {
             .bind(businessInvoiceQueue)
             .to(accountiaExchange)
             .with(INVOICE_UPDATED_ROUTING_KEY);
+    }
+
+    /**
+     * Binding for expense created events.
+     */
+    @Bean
+    public Binding expenseCreatedBinding(@Qualifier("businessExpenseQueue") Queue businessExpenseQueue,
+                                          @Qualifier("accountiaExchange") TopicExchange accountiaExchange) {
+        return BindingBuilder
+            .bind(businessExpenseQueue)
+            .to(accountiaExchange)
+            .with(EXPENSE_CREATED_ROUTING_KEY);
+    }
+
+    /**
+     * Binding for expense updated events.
+     */
+    @Bean
+    public Binding expenseUpdatedBinding(@Qualifier("businessExpenseQueue") Queue businessExpenseQueue,
+                                          @Qualifier("accountiaExchange") TopicExchange accountiaExchange) {
+        return BindingBuilder
+            .bind(businessExpenseQueue)
+            .to(accountiaExchange)
+            .with(EXPENSE_UPDATED_ROUTING_KEY);
+    }
+
+    /**
+     * Binding for expense deleted events.
+     */
+    @Bean
+    public Binding expenseDeletedBinding(@Qualifier("businessExpenseQueue") Queue businessExpenseQueue,
+                                          @Qualifier("accountiaExchange") TopicExchange accountiaExchange) {
+        return BindingBuilder
+            .bind(businessExpenseQueue)
+            .to(accountiaExchange)
+            .with(EXPENSE_DELETED_ROUTING_KEY);
     }
 
     /**
