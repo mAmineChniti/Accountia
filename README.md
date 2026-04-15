@@ -1,6 +1,6 @@
 # Accountia
 
-A multi-tenant SaaS platform for financial management built with microservices architecture.
+A multi-tenant SaaaS platform for financial management built with microservices architecture.
 
 ## Architecture Overview
 
