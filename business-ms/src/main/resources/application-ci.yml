@@ -10,6 +10,8 @@ spring:
   cloud:
     discovery:
       enabled: false
+    openfeign:
+      enabled: false
   
   # H2 In-Memory Database for CI
   datasource:
