@@ -67,7 +67,7 @@ eureka:
   client:
     enabled: ${EUREKA_ENABLED:true}
     service-url:
-      defaultZone: ${EUREKA_SERVICE_URL:http://admin:admin@localhost:8761/eureka/}
+      defaultZone: ${EUREKA_SERVICE_URL:http://localhost:8761/eureka/}
     register-with-eureka: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA:true}
     fetch-registry: ${EUREKA_CLIENT_FETCH_REGISTRY:true}
     healthcheck:
