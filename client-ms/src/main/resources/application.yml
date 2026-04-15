@@ -7,9 +7,9 @@ spring:
   config:
     import: "optional:configserver:"
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
+    url: ${SPRING_DATASOURCE_URL:}
     username: ${SPRING_DATASOURCE_USERNAME:accountia}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: ${HIKARI_MAXIMUM_POOL_SIZE:20}
@@ -37,7 +37,7 @@ spring:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD}
+    password: ${RABBITMQ_PASSWORD:}
     virtual-host: ${RABBITMQ_VHOST:/}
     # Connection settings
     connection-timeout: 15000
@@ -61,7 +61,7 @@ spring:
 
 security:
   jwt:
-    secret: ${SECURITY_JWT_SECRET}
+    secret: ${SECURITY_JWT_SECRET:}
     expiration-ms: ${SECURITY_JWT_EXPIRATION_MS:3600000}
 
 eureka:

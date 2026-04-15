@@ -1,0 +1,4 @@
+spring:
+  security:
+    user:
+      password: ci_password_placeholder
