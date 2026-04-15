@@ -45,6 +45,14 @@ public class ClientController {
         return ResponseEntity.ok(clients);
     }
 
+    // GET BY NOM ENTREPRISE - /api/client/clients/business?nomEntreprise=TechCorp
+    @GetMapping("/clients/business")
+    public ResponseEntity<List<Client>> searchByNomEntreprise(@RequestParam String nomEntreprise) {
+        List<Client> clients = clientService.getClientsByNomEntreprise(nomEntreprise);
+        if (clients.isEmpty()) return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(clients);
+    }
+
     // POST - Créer un client
     @PostMapping(value = "/clients", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Client> createClient(@RequestBody Client client) {

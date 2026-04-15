@@ -10,5 +10,9 @@ public class InvoiceDTO {
     private String tenantId;
     private String clientName;
     private Double amount;
+    private String description;
     private LocalDate issueDate;
+    private LocalDate dueDate;
+    private String status;
+    private String ownerSubject;
 }

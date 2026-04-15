@@ -1,0 +1,140 @@
+:root {
+  --acc-bg: #f8f6f2;
+  --acc-surface: #ffffff;
+  --acc-text: #1f1f1f;
+  --acc-muted: #6b6b6b;
+  --acc-primary: #8f2d2d;
+  --acc-primary-2: #a53a3a;
+  --acc-border: #e9ded4;
+  --acc-shadow: 0 12px 36px rgba(143, 45, 45, 0.12);
+}
+
+body.login-pf {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(165, 58, 58, 0.14), transparent 42%),
+    radial-gradient(circle at 100% 100%, rgba(143, 45, 45, 0.16), transparent 36%),
+    var(--acc-bg);
+  color: var(--acc-text);
+  font-family: Poppins, "Segoe UI", sans-serif;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.login-pf-page {
+  width: min(460px, calc(100vw - 32px)) !important;
+  min-height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 auto !important;
+  padding: 16px !important;
+}
+
+#kc-header,
+#kc-content {
+  width: 100% !important;
+  max-width: 460px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+#kc-content-wrapper,
+#kc-form-wrapper,
+#kc-form {
+  width: 100% !important;
+  max-width: 460px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+#kc-header-wrapper {
+  text-align: center !important;
+  color: var(--acc-primary);
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  margin-bottom: 14px;
+}
+
+#kc-header-wrapper::before {
+  content: "";
+  display: block;
+  width: 92px;
+  height: 92px;
+  margin: 0 auto 10px;
+  background: url("../img/logo.png") center/contain no-repeat;
+}
+
+.card-pf {
+  width: 100% !important;
+  max-width: 460px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  float: none !important;
+  background: var(--acc-surface);
+  border: 1px solid var(--acc-border);
+  border-radius: 16px;
+  box-shadow: var(--acc-shadow);
+}
+
+.pf-c-form-control,
+input[type="text"],
+input[type="password"],
+input[type="email"] {
+  border: 1px solid var(--acc-border);
+  border-radius: 10px;
+  min-height: 42px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pf-c-form-control:focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus {
+  border-color: var(--acc-primary);
+  box-shadow: 0 0 0 3px rgba(143, 45, 45, 0.14);
+}
+
+.pf-c-button.pf-m-primary,
+#kc-login {
+  background: linear-gradient(135deg, var(--acc-primary), var(--acc-primary-2));
+  border: 0;
+  border-radius: 10px;
+  min-height: 42px;
+  font-weight: 600;
+}
+
+.pf-c-button.pf-m-primary:hover,
+#kc-login:hover {
+  filter: brightness(1.03);
+}
+
+#kc-form-options a,
+#kc-info a,
+a {
+  color: var(--acc-primary);
+}
+
+#kc-content-wrapper,
+#kc-info-wrapper,
+#kc-locale,
+.pf-c-alert__title,
+.pf-c-form__label-text {
+  color: var(--acc-text);
+}
+
+#kc-info {
+  border-top: 1px solid var(--acc-border);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+@media (max-width: 520px) {
+  .card-pf {
+    border-radius: 12px;
+  }
+}

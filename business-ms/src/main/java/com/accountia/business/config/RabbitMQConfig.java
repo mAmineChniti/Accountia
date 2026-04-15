@@ -26,6 +26,9 @@ public class RabbitMQConfig {
     
     // Routing keys
     public static final String BUSINESS_ROUTING_KEY = "business.#";
+    public static final String BUSINESS_CREATED_ROUTING_KEY = "business.created";
+    public static final String BUSINESS_UPDATED_ROUTING_KEY = "business.updated";
+    public static final String BUSINESS_DELETED_ROUTING_KEY = "business.deleted";
     public static final String INVOICE_CREATED_ROUTING_KEY = "invoice.created";
     public static final String INVOICE_UPDATED_ROUTING_KEY = "invoice.updated";
 

@@ -15,11 +15,16 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
+    private static final String DEFAULT_DEV_SECRET = "changeitchangeitchangeitchangeit";
+
     private final SecretKey secretKey;
     private final long expirationMs;
 
     public JwtUtil(@Value("${security.jwt.secret}") String secret,
                    @Value("${security.jwt.expiration-ms:3600000}") long expirationMs) {
+        if (secret == null || secret.isBlank() || secret.contains("${")) {
+            secret = DEFAULT_DEV_SECRET;
+        }
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
             throw new IllegalArgumentException(

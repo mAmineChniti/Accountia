@@ -5,7 +5,6 @@ import java.util.Map;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import jakarta.servlet.FilterChain;
@@ -13,10 +12,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.List;
+/*import java.util.List; */
 import java.util.Collections;
 
-@Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
@@ -37,13 +35,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     String username = claims.get("username") == null ? null : String.valueOf(claims.get("username"));
                     
                     if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                        // Create authentication with user claims and default USER role
                         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                             email, 
                             null, 
                             Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
                         );
-                        // Store user details in authentication for later use
                         auth.setDetails(Map.of(
                             "email", email,
                             "username", username,

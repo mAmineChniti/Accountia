@@ -21,20 +21,26 @@ public class AuthService {
     private final UserCacheService userCacheService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final KeycloakService keycloakService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AuthService(UserRepository userRepository, UserCacheService userCacheService, 
                       PasswordResetTokenRepository passwordResetTokenRepository,
-                      RefreshTokenRepository refreshTokenRepository) {
+                      RefreshTokenRepository refreshTokenRepository,
+                      KeycloakService keycloakService) {
         this.userRepository = userRepository;
         this.userCacheService = userCacheService;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.keycloakService = keycloakService;
     }
 
     public Optional<User> login(String identifier, String password) {
-        return userCacheService.findByEmailCached(identifier)
-                .filter(u -> passwordEncoder.matches(password, u.getPasswordHash()));
+        Optional<User> user = userCacheService.findByEmailCached(identifier);
+        if (user.isEmpty()) {
+            user = userRepository.findByUsername(identifier);
+        }
+        return user.filter(u -> passwordEncoder.matches(password, u.getPasswordHash()));
     }
 
     public Optional<User> findByEmail(String email) {
@@ -59,7 +65,18 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setIsActive(true);
         
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        
+        // Synchronize with Keycloak
+        try {
+            keycloakService.createUser(request);
+        } catch (Exception e) {
+            // Optional: roll back local user if Keycloak fails, or just log it
+            // For now we just log and continue or throw depending on requirements
+            throw new RuntimeException("Synchronisation avec Keycloak échouée : " + e.getMessage());
+        }
+        
+        return savedUser;
     }
 
     public User updateUser(Long userId, UpdateRequest request) {

@@ -22,12 +22,11 @@ public class SecurityConfigCI {
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         http
-            .csrf(ServerHttpSecurity.CsrfSpec::disable)
-            .authorizeExchange(exchanges -> exchanges
-                // Permit all requests in CI mode for smoke testing
-                .anyExchange().permitAll()
-            );
-        
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .authorizeExchange(exchanges -> exchanges
+                        // Permit all requests in CI mode for smoke testing
+                        .anyExchange().permitAll());
+
         return http.build();
     }
 }

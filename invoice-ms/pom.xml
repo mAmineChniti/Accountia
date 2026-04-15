@@ -37,6 +37,12 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 		
+		<!-- OAuth2 Resource Server (for bearerTokenResolver) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+		</dependency>
+		
 		<!-- JWT -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
@@ -108,7 +114,7 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-	</dependencies>
+			</dependencies>
 
 	<dependencyManagement>
 		<dependencies>
@@ -119,7 +125,7 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
-		</dependencies>
+				</dependencies>
 	</dependencyManagement>
 
 	<build>
@@ -155,3 +161,5 @@
 	</build>
 
 </project>
+
+
