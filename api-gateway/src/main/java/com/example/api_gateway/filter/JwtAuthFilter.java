@@ -1,7 +1,5 @@
 package com.example.api_gateway.filter;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
@@ -16,8 +14,6 @@ import reactor.core.publisher.Mono;
  */
 @Component
 public class JwtAuthFilter implements GlobalFilter, Ordered {
-    private final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
-
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         // Strip any client-supplied X-User-* headers to prevent spoofing

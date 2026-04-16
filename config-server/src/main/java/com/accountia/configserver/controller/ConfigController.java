@@ -3,7 +3,6 @@ package com.accountia.configserver.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.config.environment.Environment;
 import org.springframework.cloud.config.server.environment.EnvironmentRepository;
-import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,9 +17,6 @@ public class ConfigController {
 
     @Autowired
     private EnvironmentRepository environmentRepository;
-
-    @Autowired
-    private ConfigurableEnvironment configurableEnvironment;
 
     @GetMapping("/{application}/{profile}")
     public Map<String, Object> getConfig(@PathVariable String application, @PathVariable String profile) {

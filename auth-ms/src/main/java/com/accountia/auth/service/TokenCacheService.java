@@ -12,7 +12,6 @@ public class TokenCacheService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private static final String TOKEN_CACHE_PREFIX = "token:validated:";
-    private static final long DEFAULT_TOKEN_TTL_MINUTES = 15;
 
     public TokenCacheService(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;

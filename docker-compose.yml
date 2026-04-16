@@ -70,6 +70,40 @@ services:
       retries: 5
     networks:
       - accountia-network
+
+       # =====================================================
+  # KEYCLOAK — Identity Provider (IAM)
+  # Interface admin : http://localhost:8180
+  # =====================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.1
+    container_name: accountia-keycloak
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: dev-file
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_PORT: 8080
+      KC_SPI_THEME_CACHE_THEMES: "false"
+      KC_SPI_THEME_CACHE_TEMPLATES: "false"
+    ports:
+      - "8180:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/realm-accountia.json:/opt/keycloak/data/import/realm-accountia.json
+      - ./keycloak/themes:/opt/keycloak/themes
+    healthcheck:
+      test: ["CMD", "/usr/bin/bash", "-lc", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /realms/accountia HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3; grep -q '200 OK' <&3"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - accountia-network
+
    
   # =====================================================
   # CONFIG SERVER
@@ -145,7 +179,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
-      - EUREKA_SERVICE_URL=http://eureka-server:8761/eureka/
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
+      - EUREKA_SERVICE_URL=http://admin:admin@eureka-server:8761/eureka/
       - EUREKA_CLIENT_ENABLED=true
       - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
       - EUREKA_CLIENT_FETCH_REGISTRY=true
@@ -168,6 +204,31 @@ services:
       - accountia-network
 
   # =====================================================
+  # FRONTEND (Next.js)
+  # Code source: ../accountia-web
+  # =====================================================
+  frontend:
+    build:
+      context: ../accountia-web
+      dockerfile: ../Accountia/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND: http://localhost:8080
+    container_name: accountia-frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND=http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+    networks:
+      - accountia-network
+
+
+  # =====================================================
   # MICROSERVICES
   # =====================================================
   
@@ -180,6 +241,8 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
       - SPRING_CLOUD_CONFIG_NAME=auth-ms,accountia
       - SPRING_APPLICATION_NAME=auth-ms
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
@@ -190,8 +253,8 @@ services:
       - SECURITY_JWT_SECRET=${SECURITY_JWT_SECRET}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
-      - EUREKA_SERVICE_URL=${EUREKA_SERVICE_URL}
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=${EUREKA_SERVICE_URL}
+      - EUREKA_SERVICE_URL=http://admin:admin@eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://admin:admin@eureka-server:8761/eureka/
       - EUREKA_CLIENT_ENABLED=true
       - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
       - EUREKA_CLIENT_FETCH_REGISTRY=true
@@ -202,7 +265,7 @@ services:
       - ADMIN_SEED_TENANT_ID=${ADMIN_SEED_TENANT_ID}
       - ADMIN_SEED_PASSWORD=${ADMIN_SEED_PASSWORD}
     ports:
-      - "8081:8081"
+      - "${AUTH_MS_PORT:-8087}:8081"
     depends_on:
       mysql:
         condition: service_healthy
@@ -227,11 +290,13 @@ services:
     build: ./business-ms
     container_name: accountia-business
     environment:
-      - SERVER_PORT=8080
+      - SERVER_PORT=8082
       - SPRING_PROFILES_ACTIVE
       - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
       - SPRING_CLOUD_CONFIG_NAME=business-ms,accountia
       - SPRING_APPLICATION_NAME=business-ms
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
@@ -247,7 +312,7 @@ services:
       - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
       - EUREKA_CLIENT_FETCH_REGISTRY=true
     ports:
-      - "8082:8080"
+      - "8082:8082"
     depends_on:
       mysql:
         condition: service_healthy
@@ -260,7 +325,7 @@ services:
       config-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/business/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8082/api/business/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -274,9 +339,12 @@ services:
     environment:
       - SERVER_PORT=8083
       - SPRING_PROFILES_ACTIVE
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
       - SPRING_CLOUD_CONFIG_NAME=invoice-ms,accountia
       - SPRING_APPLICATION_NAME=invoice-ms
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
@@ -292,7 +360,7 @@ services:
       - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
       - EUREKA_CLIENT_FETCH_REGISTRY=true
     ports:
-      - "8083:8083"
+      - "8093:8083"
     depends_on:
       mysql:
         condition: service_healthy
@@ -319,9 +387,12 @@ services:
     environment:
       - SERVER_PORT=8084
       - SPRING_PROFILES_ACTIVE
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
       - SPRING_CLOUD_CONFIG_NAME=expense-ms,accountia
       - SPRING_APPLICATION_NAME=expense-ms
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
@@ -337,7 +408,7 @@ services:
       - EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
       - EUREKA_CLIENT_FETCH_REGISTRY=true
     ports:
-      - "8084:8084"
+      - "8094:8084"
     depends_on:
       mysql:
         condition: service_healthy
@@ -364,10 +435,13 @@ services:
     environment:
       - SERVER_PORT=8085
       - SPRING_PROFILES_ACTIVE
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
       - SPRING_MAIN_ALLOW_BEAN_DEFINITION_OVERRIDING=true
       - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
       - SPRING_CLOUD_CONFIG_NAME=client-ms,accountia
       - SPRING_APPLICATION_NAME=client-ms
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountia/protocol/openid-connect/certs
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountia
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
@@ -434,3 +508,4 @@ volumes:
   mysql-data:
   postgres-data:
   redis-data:
+  keycloak-data:

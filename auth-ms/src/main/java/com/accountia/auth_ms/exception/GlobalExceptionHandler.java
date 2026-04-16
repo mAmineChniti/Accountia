@@ -3,9 +3,11 @@ package com.accountia.auth_ms.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.WebRequest;
+/*import org.springframework.web.context.request.WebRequest; */
 
 import java.time.Instant;
 import org.slf4j.Logger;
@@ -33,6 +35,23 @@ public class GlobalExceptionHandler {
         ErrorResponse error = new ErrorResponse(
             "BAD_REQUEST",
             ex.getMessage(),
+            Instant.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult()
+            .getFieldErrors()
+            .stream()
+            .findFirst()
+            .map(FieldError::getDefaultMessage)
+            .orElse("Validation failed");
+
+        ErrorResponse error = new ErrorResponse(
+            "BAD_REQUEST",
+            message,
             Instant.now()
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);

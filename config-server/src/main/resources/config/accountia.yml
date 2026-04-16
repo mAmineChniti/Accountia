@@ -1,9 +1,9 @@
 # Production configuration for all Accountia services
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/accountia?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:accountia}
+    password: ${SPRING_DATASOURCE_PASSWORD:accountia}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
@@ -14,17 +14,14 @@ spring:
   
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
 
   rabbitmq:
-    host: ${RABBITMQ_HOST}
-    port: ${RABBITMQ_PORT}
-    username: ${RABBITMQ_USERNAME}
-    password: ${RABBITMQ_PASSWORD}
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
     virtual-host: /
     connection-timeout: 15000
     publisher-confirm-type: correlated
@@ -41,8 +38,8 @@ spring:
           multiplier: 2
 
   redis:
-    host: ${REDIS_HOST}
-    port: ${REDIS_PORT}
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
     timeout: 2000ms
     lettuce:
       pool:
@@ -53,7 +50,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_SERVICE_URL}
+      defaultZone: ${EUREKA_SERVICE_URL:http://admin:admin@localhost:8761/eureka/}
     enabled: true
     register-with-eureka: true
     fetch-registry: true
@@ -67,7 +64,7 @@ eureka:
 
 security:
   jwt:
-    secret: ${SECURITY_JWT_SECRET}
+    secret: ${SECURITY_JWT_SECRET:changeitchangeitchangeitchangeit}
     expiration-ms: 86400000 # 24 hours
 
 management:
